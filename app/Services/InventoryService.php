@@ -30,6 +30,31 @@ class InventoryService
         $this->log($product->id, $qty, $changeType, $notes);
     }
 
+    public function adjust(Product $product, int $change, string $notes): void
+    {
+        if ($change === 0) {
+            throw new DomainException('Quantity change cannot be zero.');
+        }
+
+        if ($change > 0) {
+            $this->add($product, $change, 'adjustment', $notes);
+
+            return;
+        }
+
+        $qty = abs($change);
+
+        $updated = Product::whereKey($product->id)
+            ->where('stock', '>=', $qty)
+            ->decrement('stock', $qty, $this->auditFields());
+
+        if (! $updated) {
+            throw new DomainException("Stock of {$product->product_name} cannot go below zero.");
+        }
+
+        $this->log($product->id, $change, 'adjustment', $notes);
+    }
+
     public function lowStock(): Collection
     {
         return Product::active()->lowStock()->orderBy('stock')

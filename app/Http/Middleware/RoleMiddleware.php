@@ -17,7 +17,7 @@ class RoleMiddleware
     {
         $user = $request->user();
 
-        if (! $user || ! in_array($user->role, $roles, true)) {
+        if (! $user || ! $user->is_active || ! $user->hasRole(...$roles)) {
             abort(403, 'You are not allowed to access this page.');
         }
 

@@ -58,6 +58,23 @@ class Transaction extends Model
         return ! empty($this->courier);
     }
 
+    /** onsite (POS), pickup, or delivery. */
+    public function getFulfillmentAttribute(): string
+    {
+        if ($this->transaction_type === self::TYPE_POS) {
+            return 'onsite';
+        }
+
+        return $this->isDelivery() ? 'delivery' : 'pickup';
+    }
+
+    /** Online orders use the Midtrans order id. POS orders get a POS-000123 style number. */
+    public function getOrderNumberAttribute(): string
+    {
+        return $this->payment?->midtrans_order_id
+            ?? 'POS-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+    }
+
     /** Paid / valid transactions (used for revenue). */
     public function scopeSuccessful(Builder $query): Builder
     {

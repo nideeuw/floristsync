@@ -32,7 +32,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
     // POS cashier
-    Route::middleware('role:cashier,admin')->prefix('pos')->group(function () {
+    Route::middleware('role:cashier')->prefix('pos')->group(function () {
         Route::get('products', [PosController::class, 'products']);
         Route::post('transactions', [PosController::class, 'store']);
     });

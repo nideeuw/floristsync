@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
             Role::CASHIER => 'Handles POS transactions and online orders',
             Role::OWNER   => 'Monitors revenue and reports',
             Role::MEMBER  => 'Registered customer',
-        ])->map(fn ($description, $name) => Role::create([
+        ])->map(fn($description, $name) => Role::create([
             'role_name' => $name,
             'description' => $description,
         ]));
@@ -36,6 +36,9 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        $this->call(DummyDataSeeder::class);
+        $this->call([
+            DummyDataSeeder::class,
+            DummyOrdersSeeder::class,
+        ]);
     }
 }

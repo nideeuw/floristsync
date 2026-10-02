@@ -54,19 +54,23 @@ Route::middleware(['auth', 'role:admin,owner'])->prefix('admin')->name('admin.')
     Route::get('reports', [ReportController::class, 'index'])->name('reports');
 });
 
-// ---------- Admin and cashier (order processing) ----------
+// ---------- Admin and cashier: online order processing ----------
 Route::middleware(['auth', 'role:admin,cashier'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('orders', [OrderController::class, 'index'])->name('orders');
+    Route::get('orders/{transaction}', [OrderController::class, 'show'])->name('orders.show');
+    Route::patch('orders/{transaction}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
+    Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'updateTrackingNumber'])->name('orders.tracking');
 });
 
 // ---------- Admin only ----------
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('categories', CategoryController::class)->except('show');
-    Route::resource('products', AdminProductController::class);
+    Route::resource('products', AdminProductController::class)->except('show');
+    Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
 });
 
-// ---------- Cashier (POS) ----------
-Route::middleware(['auth', 'role:cashier,admin'])->prefix('cashier')->name('cashier.')->group(function () {
+// ---------- Cashier only: POS terminal and receipts (in-store sales) ----------
+Route::middleware(['auth', 'role:cashier'])->prefix('cashier')->name('cashier.')->group(function () {
     Route::get('/', [PosController::class, 'index'])->name('pos');
     Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
 });
