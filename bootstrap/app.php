@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->redirectGuestsTo(fn(Request $request) => match (true) {
             $request->is('admin', 'admin/*') => route('admin.login'),
-            $request->is('cashier', 'cashier/*') => route('cashier.login'),
+            $request->is('pos', 'pos/*') => route('cashier.login'),
             default => route('login'),
         });
     })
