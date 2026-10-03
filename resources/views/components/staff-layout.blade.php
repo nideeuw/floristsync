@@ -54,7 +54,7 @@ $menu = collect([
                 <div class="mb-2 text-xs text-cream/60">{{ ucfirst($role) }}</div>
                 <a href="{{ route('home') }}" class="mr-3 text-cream/80 hover:text-white">View store</a>
                 <a href="{{ route('profile.edit') }}" class="mr-3 text-cream/80 hover:text-white">Profile</a>
-                <form method="POST" action="{{ route('logout') }}" class="inline">
+                <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf
                     <button type="submit" class="text-cream/80 hover:text-white">Log out</button>
                 </form>
