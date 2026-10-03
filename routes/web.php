@@ -83,9 +83,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 });
 
 // =====================================================================
-// CASHIER AREA (POS): login at /cashier/login (cashier only)
+// POS AREA: login at /pos/login (cashier only)
+// Route names keep the "cashier." prefix; only the URL is /pos.
 // =====================================================================
-Route::prefix('cashier')->name('cashier.')->group(function () {
+Route::prefix('pos')->name('cashier.')->group(function () {
 
     // Login door
     Route::get('login', [CashierLoginController::class, 'create'])->name('login');

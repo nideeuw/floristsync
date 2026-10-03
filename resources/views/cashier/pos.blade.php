@@ -1,153 +1,178 @@
-<x-app-layout>
-    <script>
-        function pos() {
-            return {
-                categories: [],
-                products: [],
-                categoryId: null,
-                cart: [],
-                paymentMethod: 'cash',
-                paidAmount: 0,
-                loading: false,
+<x-pos-layout>
+    <div x-data="pos"
+        data-storage-url="{{ asset('storage') }}"
+        data-low-stock="{{ (int) config('floristsync.low_stock_threshold') }}"
+        data-login-url="{{ route('cashier.login') }}"
+        x-on:keydown.window.f2.prevent="$refs.search.focus()"
+        class="flex h-[calc(100vh-3.5rem)]">
 
-                async load() {
-                    const res = await fetch('/api/pos/products', { headers: { Accept: 'application/json' } });
-                    const json = await res.json();
-                    this.categories = json.categories;
-                    this.products = json.data;
-                },
-
-                get filtered() {
-                    return this.categoryId
-                        ? this.products.filter(p => p.category_id === this.categoryId)
-                        : this.products;
-                },
-
-                get total() {
-                    return this.cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-                },
-
-                add(product) {
-                    const item = this.cart.find(i => i.product_id === product.id);
-                    if (item) {
-                        if (item.qty < product.stock) item.qty++;
-                    } else {
-                        this.cart.push({
-                            product_id: product.id,
-                            product_name: product.product_name,
-                            price: product.price,
-                            qty: 1,
-                        });
-                    }
-                },
-
-                changeQty(item, delta) {
-                    item.qty += delta;
-                    if (item.qty <= 0) this.cart = this.cart.filter(i => i !== item);
-                },
-
-                rupiah(n) {
-                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-                },
-
-                async pay() {
-                    if (!this.cart.length) return;
-                    this.loading = true;
-
-                    const res = await fetch('/api/pos/transactions', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                        },
-                        body: JSON.stringify({
-                            items: this.cart.map(i => ({ product_id: i.product_id, qty: i.qty })),
-                            payment_method: this.paymentMethod,
-                            paid_amount: Number(this.paidAmount) || 0,
-                        }),
-                    });
-
-                    const json = await res.json();
-                    this.loading = false;
-
-                    if (!res.ok) return alert(json.message ?? 'Transaction failed.');
-
-                    window.open(json.data.receipt_url, '_blank'); // print receipt
-                    this.cart = [];
-                    this.paidAmount = 0;
-                    this.load(); // refresh stock
-                },
-            };
-        }
-    </script>
-
-    <div x-data="pos()" x-init="load(); setInterval(() => load(), 15000)"
-         class="grid grid-cols-3 gap-6 p-6">
-
-        {{-- Products --}}
-        <div class="col-span-2">
-            <div class="mb-4 flex flex-wrap gap-2">
-                <button @click="categoryId = null"
-                        :class="categoryId === null ? 'bg-black text-white' : 'bg-gray-100'"
-                        class="rounded-full px-4 py-2 text-sm">All</button>
-                <template x-for="c in categories" :key="c.id">
-                    <button @click="categoryId = c.id" x-text="c.category_name"
-                            :class="categoryId === c.id ? 'bg-black text-white' : 'bg-gray-100'"
-                            class="rounded-full px-4 py-2 text-sm"></button>
-                </template>
-            </div>
-
-            <div class="grid grid-cols-4 gap-4">
-                <template x-for="p in filtered" :key="p.id">
-                    <button @click="add(p)" :disabled="p.stock < 1"
-                            class="rounded-lg border p-3 text-left disabled:opacity-40">
-                        <div class="font-semibold" x-text="p.product_name"></div>
-                        <div class="text-lg" x-text="rupiah(p.price)"></div>
-                        <div class="text-xs text-gray-500" x-text="'Stock: ' + p.stock"></div>
-                    </button>
-                </template>
-            </div>
-        </div>
-
-        {{-- Cart --}}
-        <div class="rounded-lg border p-4">
-            <h2 class="mb-3 text-lg font-bold">Current Order</h2>
-
-            <template x-for="item in cart" :key="item.product_id">
-                <div class="mb-3 flex items-center justify-between">
-                    <div>
-                        <div x-text="item.product_name"></div>
-                        <div class="text-sm text-gray-500" x-text="rupiah(item.price * item.qty)"></div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button @click="changeQty(item, -1)" class="rounded border px-2">-</button>
-                        <span x-text="item.qty"></span>
-                        <button @click="changeQty(item, 1)" class="rounded border px-2">+</button>
-                    </div>
+        {{-- ================= Left: products ================= --}}
+        <section class="flex min-w-0 flex-1 flex-col">
+            <div class="space-y-3 border-b border-blush bg-white p-4">
+                <div class="flex gap-3">
+                    <input x-ref="search" x-model="search" type="text" placeholder="Search product (F2)" class="input"
+                        x-on:keydown.enter="if (filtered.length === 1) { add(filtered[0]); search = ''; }">
+                    <button type="button" x-on:click="load()" class="btn-outline shrink-0" title="Refresh stock">↻</button>
                 </div>
-            </template>
 
-            <div class="mt-4 border-t pt-4">
-                <div class="mb-3 flex justify-between text-xl font-bold">
+                <div class="flex gap-2 overflow-x-auto pb-1">
+                    <button type="button" x-on:click="categoryId = null"
+                        :class="categoryId === null ? 'bg-moss text-white' : 'bg-blush/60 hover:bg-blush'"
+                        class="shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold">All</button>
+
+                    <template x-for="c in categories" :key="c.id">
+                        <button type="button" x-on:click="categoryId = c.id" x-text="c.category_name"
+                            :class="categoryId === c.id ? 'bg-moss text-white' : 'bg-blush/60 hover:bg-blush'"
+                            class="shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold"></button>
+                    </template>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4">
+                <div x-show="filtered.length === 0" x-cloak class="py-16 text-center text-gray-500">
+                    <div class="text-5xl">🥀</div>
+                    <p class="mt-2">No products found.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                    <template x-for="p in filtered" :key="p.id">
+                        <button type="button" x-on:click="add(p)" :disabled="p.stock < 1"
+                            class="card flex flex-col overflow-hidden text-left transition hover:border-petal hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">
+                            <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden"
+                                :class="['bg-blush', 'bg-petal/50', 'bg-sage/40', 'bg-cream'][p.id % 4]">
+                                <template x-if="p.image">
+                                    <img :src="storageUrl + '/' + p.image" alt="" class="h-full w-full object-cover">
+                                </template>
+                                <template x-if="!p.image">
+                                    <span class="text-5xl" x-text="emojis[p.id % 6]"></span>
+                                </template>
+
+                                <span class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-xs font-semibold"
+                                    :class="p.stock < 1 ? 'bg-gray-700 text-white' : (p.stock <= lowStock ? 'bg-red-100 text-red-700' : 'bg-white/90')"
+                                    x-text="p.stock < 1 ? 'Sold out' : p.stock + ' left'"></span>
+                            </div>
+
+                            <div class="p-3">
+                                <div class="line-clamp-2 text-sm font-semibold leading-snug" x-text="p.product_name"></div>
+                                <div class="mt-1 font-bold text-moss" x-text="rupiah(p.price)"></div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        {{-- ================= Right: cart and payment ================= --}}
+        <aside class="flex w-full max-w-sm shrink-0 flex-col border-l border-blush bg-white sm:w-96">
+            <div class="flex items-center justify-between border-b border-blush px-4 py-3">
+                <div>
+                    <div class="font-bold">Current Order</div>
+                    <div class="text-xs text-gray-500" x-text="itemCount + ' item(s)'"></div>
+                </div>
+                <button type="button" x-on:click="clear()" x-show="cart.length" x-cloak
+                    class="text-sm text-red-600 hover:underline">Clear</button>
+            </div>
+
+            <div class="flex-1 space-y-3 overflow-y-auto p-4">
+                <div x-show="cart.length === 0" x-cloak class="py-16 text-center text-gray-400">
+                    <div class="text-5xl">🛒</div>
+                    <p class="mt-2 text-sm">Tap a product to add it.</p>
+                </div>
+
+                <template x-for="item in cart" :key="item.product_id">
+                    <div class="rounded-xl border border-blush p-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="text-sm font-semibold leading-snug" x-text="item.product_name"></div>
+                            <button type="button" x-on:click="remove(item)" class="text-gray-400 hover:text-red-600" aria-label="Remove">✕</button>
+                        </div>
+
+                        <div class="mt-2 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <button type="button" x-on:click="dec(item)" class="h-8 w-8 rounded-full bg-blush font-bold hover:bg-petal">-</button>
+                                <span class="w-6 text-center font-semibold" x-text="item.qty"></span>
+                                <button type="button" x-on:click="inc(item)" :disabled="item.qty >= item.stock"
+                                    class="h-8 w-8 rounded-full bg-blush font-bold hover:bg-petal disabled:opacity-40">+</button>
+                            </div>
+                            <div class="font-bold" x-text="rupiah(item.price * item.qty)"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="space-y-3 border-t border-blush bg-cream/50 p-4">
+                <div class="flex items-center justify-between text-lg font-extrabold">
                     <span>Total</span>
                     <span x-text="rupiah(total)"></span>
                 </div>
 
-                <select x-model="paymentMethod" class="mb-2 w-full rounded border p-2">
-                    <option value="cash">Cash</option>
-                    <option value="qris">QRIS</option>
-                    <option value="debit">Debit</option>
-                </select>
+                {{-- Payment method --}}
+                <div class="grid grid-cols-3 gap-2">
+                    <template x-for="m in [{ key: 'cash', label: 'Cash' }, { key: 'qris', label: 'QRIS' }, { key: 'debit', label: 'Debit' }]" :key="m.key">
+                        <button type="button" x-on:click="method = m.key" x-text="m.label"
+                            :class="method === m.key ? 'bg-moss text-white' : 'bg-white border border-blush hover:bg-blush/50'"
+                            class="rounded-xl py-2 text-sm font-semibold"></button>
+                    </template>
+                </div>
 
-                <input x-show="paymentMethod === 'cash'" x-model="paidAmount" type="number" min="0"
-                       placeholder="Cash received" class="mb-2 w-full rounded border p-2">
+                {{-- Cash --}}
+                <div x-show="method === 'cash'" x-cloak class="space-y-2">
+                    <input type="number" min="0" x-model="paid" placeholder="Cash received" class="input">
 
-                <button @click="pay()" :disabled="loading || !cart.length"
-                        class="w-full rounded bg-black py-3 font-semibold text-white disabled:opacity-40">
-                    <span x-text="loading ? 'Processing...' : 'Pay / Complete Order'"></span>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" x-on:click="paid = total" :disabled="!cart.length"
+                            class="rounded-full bg-blush/70 px-3 py-1 text-xs font-semibold hover:bg-blush disabled:opacity-40">Exact</button>
+                        <template x-for="amount in [50000, 100000, 200000]" :key="amount">
+                            <button type="button" x-on:click="paid = amount" x-text="rupiah(amount)"
+                                class="rounded-full bg-blush/70 px-3 py-1 text-xs font-semibold hover:bg-blush"></button>
+                        </template>
+                    </div>
+
+                    <div class="flex justify-between text-sm">
+                        <span>Change</span>
+                        <span class="font-bold" x-text="rupiah(change)"></span>
+                    </div>
+                </div>
+
+                <p x-show="method !== 'cash'" x-cloak class="text-xs text-gray-600">
+                    Confirm the customer has paid on the
+                    <span x-text="method === 'qris' ? 'QRIS' : 'EDC / debit'"></span>
+                    device, then complete the order.
+                </p>
+
+                <div x-show="error" x-cloak x-text="error" class="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-800"></div>
+
+                <button type="button" x-on:click="pay()" :disabled="!canPay" class="btn-primary w-full py-3 text-base">
+                    <span x-text="loading ? 'Processing...' : 'Complete Order · ' + rupiah(total)"></span>
                 </button>
+            </div>
+        </aside>
+
+        {{-- ================= Success modal ================= --}}
+        <div x-show="success" x-cloak x-transition.opacity
+            class="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
+            <div class="card w-full max-w-sm p-6 text-center">
+                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-moss text-2xl text-white">✓</div>
+                <h2 class="mt-3 text-xl font-bold">Payment successful</h2>
+                <p class="text-sm text-gray-500" x-text="success ? 'Order #' + success.id : ''"></p>
+
+                <div class="mt-4 space-y-1 text-sm">
+                    <div class="flex justify-between"><span>Total</span><span class="font-semibold" x-text="success ? rupiah(success.total) : ''"></span></div>
+                    <template x-if="success && success.method === 'cash'">
+                        <div class="space-y-1">
+                            <div class="flex justify-between"><span>Cash received</span><span x-text="rupiah(success.paid)"></span></div>
+                            <div class="flex justify-between text-lg font-extrabold text-moss"><span>Change</span><span x-text="rupiah(success.change)"></span></div>
+                        </div>
+                    </template>
+                    <template x-if="success && success.method !== 'cash'">
+                        <div class="flex justify-between"><span>Method</span><span class="uppercase" x-text="success.method"></span></div>
+                    </template>
+                </div>
+
+                <div class="mt-6 grid grid-cols-2 gap-2">
+                    <a :href="receiptUrl" target="_blank" rel="noopener" class="btn-outline">Print receipt</a>
+                    <button type="button" x-on:click="newOrder()" class="btn-primary">New order</button>
+                </div>
             </div>
         </div>
     </div>
-</x-app-layout>
+</x-pos-layout>
