@@ -42,7 +42,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{transaction}', [OrderController::class, 'show']);
     });
-    Route::middleware('role:admin_order,cashier')->group(function () {
+    Route::middleware('role:admin_order')->group(function () {
         Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'trackingNumber']);
         Route::patch('orders/{transaction}/status', [OrderController::class, 'status']);
     });
