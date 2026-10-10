@@ -16,7 +16,7 @@ class DummyOrdersSeeder extends Seeder
     public function run(): void
     {
         $products = Product::all();
-        $cashier = User::whereHas('role', fn($q) => $q->where('role_name', 'cashier'))->first();
+        $cashier = User::whereHas('role', fn($q) => $q->where('role_name', Role::CASHIER))->first();
         $memberRoleId = Role::where('role_name', Role::MEMBER)->value('id');
         $members = User::factory()->count(5)->create(['role_id' => $memberRoleId]);
 
@@ -58,7 +58,7 @@ class DummyOrdersSeeder extends Seeder
             $shipping = $isDelivery ? 25000 : 0;
 
             $transaction = Transaction::create([
-                'user_id' => ($isPos || fake()->boolean(50)) ? null : $members->random()->id,
+                'user_id' => $isPos ? null : $members->random()->id,
                 'cashier_id' => $isPos ? $cashier?->id : null,
                 'transaction_type' => $isPos ? Transaction::TYPE_POS : Transaction::TYPE_ONLINE,
                 'status' => $status,
@@ -90,7 +90,7 @@ class DummyOrdersSeeder extends Seeder
                 'transaction_id' => $transaction->id,
                 'midtrans_order_id' => $isPos ? null : 'FS-' . $transaction->id . '-' . strtoupper(Str::random(6)),
                 'payment_method' => $isPos
-                    ? fake()->randomElement(['cash', 'qris', 'debit'])
+                    ? fake()->randomElement(['cash', 'qris'])
                     : fake()->randomElement(['qris', 'bank_transfer', 'gopay']),
                 'payment_status' => match (true) {
                     $paid => 'settlement',

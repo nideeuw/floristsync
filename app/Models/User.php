@@ -13,7 +13,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['role_id', 'name', 'email', 'password', 'phone', 'address'])]
+#[Fillable([
+    'role_id', 'name', 'email', 'password', 'phone',
+    'address', 'postal_code', 'destination_id', 'destination_label',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -36,7 +39,6 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
-        // New registrations (Breeze) become members by default.
         static::creating(function (User $user) {
             $user->role_id ??= Role::where('role_name', Role::MEMBER)->value('id');
         });

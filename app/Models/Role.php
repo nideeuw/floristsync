@@ -10,13 +10,11 @@ class Role extends Model
 {
     use HasAuditColumns;
 
-    public const ADMIN           = 'admin';
+    public const MEMBER          = 'member';
     public const ADMIN_ORDER     = 'admin_order';
     public const ADMIN_INVENTORY = 'admin_inventory';
     public const CASHIER         = 'cashier';
     public const OWNER           = 'owner';
-    public const MEMBER          = 'member';
-
 
     public const ADMIN_PANEL_ROLES = [self::ADMIN_ORDER, self::ADMIN_INVENTORY, self::OWNER];
     public const POS_ROLES = [self::CASHIER];

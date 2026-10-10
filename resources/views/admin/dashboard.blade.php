@@ -1,4 +1,9 @@
-﻿<x-staff-layout title="Dashboard">
+@php
+    $canViewOrders = app(\App\Services\MenuPermissionService::class)
+        ->can(auth()->user()->role_id, 'admin.orders', 'view');
+@endphp
+
+<x-staff-layout title="Dashboard">
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-stat-card label="Revenue today (store + online)" :value="rupiah($today['revenue'])" />
         <x-stat-card label="Orders today" :value="$today['orders']" />
@@ -14,7 +19,7 @@
     <div class="card mt-6 overflow-hidden">
         <div class="flex items-center justify-between border-b border-blush px-5 py-3">
             <h2 class="font-semibold">Recent Online Orders</h2>
-            @if (auth()->user()->hasRole('admin', 'cashier'))
+            @if ($canViewOrders)
             <a href="{{ route('admin.orders') }}" class="text-sm font-semibold text-moss hover:underline">View all</a>
             @endif
         </div>
@@ -33,7 +38,7 @@
                 @forelse ($recentOrders as $order)
                 <tr>
                     <td class="px-5 py-3 font-mono text-xs">
-                        @if (auth()->user()->hasRole('admin', 'cashier'))
+                        @if ($canViewOrders)
                         <a href="{{ route('admin.orders.show', $order) }}" class="font-semibold text-moss hover:underline">{{ $order->order_number }}</a>
                         @else
                         {{ $order->order_number }}

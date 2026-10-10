@@ -135,7 +135,7 @@ class TransactionService
                 $transaction->update(['status' => Transaction::PROCESSING]);
 
                 $this->notifications->notifyRoles(
-                    [Role::ADMIN, Role::CASHIER],
+                    [Role::ADMIN_ORDER, Role::CASHIER],
                     'New paid order',
                     "Order #{$transaction->id} has been paid and is ready to be processed.",
                     'new_order'
