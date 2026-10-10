@@ -48,7 +48,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Dashboard chart data
-    Route::middleware('role:admin_order,owner')->prefix('dashboard')->group(function () {
+    Route::middleware('role:owner')->prefix('dashboard')->group(function () {
         Route::get('revenue', [DashboardController::class, 'revenue']);
         Route::get('top-categories', [DashboardController::class, 'topCategories']);
         Route::get('low-stock', [DashboardController::class, 'lowStock']);

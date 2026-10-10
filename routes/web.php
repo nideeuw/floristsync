@@ -33,12 +33,8 @@ Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add')
 Route::patch('/cart/{product}', [CartController::class, 'update'])->name('cart.update');
 Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
 
-Route::get('/dashboard', function (Request $request) {
-    return match ($request->user()->role?->role_name) {
-        Role::ADMIN_ORDER, Role::ADMIN_INVENTORY, Role::OWNER => redirect()->route('admin.dashboard'),
-        Role::CASHIER => redirect()->route('cashier.pos'),
-        default => redirect()->route('home'),
-    };
+Route::get('/dashboard', function (Request $request, \App\Services\AreaHomeService $home) {
+    return redirect()->route($home->routeFor($request->user()));
 })->middleware('auth')->name('dashboard');
 
 // Members only

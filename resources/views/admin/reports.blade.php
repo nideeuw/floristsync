@@ -1,4 +1,4 @@
-﻿<x-staff-layout title="Reports">
+<x-staff-layout title="Reports">
     <x-slot:actions>
         @foreach ([7, 30, 90] as $range)
         <a href="{{ route('admin.reports', ['days' => $range]) }}"
@@ -54,9 +54,6 @@
                     <tr>
                         <th class="px-5 py-3">Product</th>
                         <th class="px-5 py-3">Stock</th>
-                        @if (auth()->user()->hasRole('admin'))
-                        <th class="px-5 py-3 text-right">Action</th>
-                        @endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-blush">
@@ -66,15 +63,10 @@
                         <td class="px-5 py-3">
                             <span class="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">{{ $product->stock }}</span>
                         </td>
-                        @if (auth()->user()->hasRole('admin'))
-                        <td class="px-5 py-3 text-right">
-                            <a href="{{ route('admin.products.edit', $product->id) }}" class="font-semibold text-moss hover:underline">Restock</a>
-                        </td>
-                        @endif
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="3" class="px-5 py-6 text-center text-gray-500">All products have enough stock.</td>
+                        <td colspan="2" class="px-5 py-6 text-center text-gray-500">All products have enough stock.</td>
                     </tr>
                     @endforelse
                 </tbody>

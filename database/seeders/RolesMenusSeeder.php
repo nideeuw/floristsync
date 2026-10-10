@@ -98,7 +98,7 @@ class RolesMenusSeeder extends Seeder
         $edit = [1, 0, 1, 0, 0, 0];
 
         $matrix = [
-            'dashboard'       => [Role::ADMIN_ORDER => $view, Role::ADMIN_INVENTORY => $view, Role::OWNER => $view],
+            'dashboard'           => [Role::OWNER => $view, Role::ADMIN_ORDER => $view, Role::ADMIN_INVENTORY => $view],
             'admin_notifications' => [Role::ADMIN_ORDER => $edit, Role::ADMIN_INVENTORY => $edit],
 
             'orders'          => [Role::ADMIN_ORDER => $edit],
@@ -118,10 +118,10 @@ class RolesMenusSeeder extends Seeder
             'staff'           => [Role::OWNER => $crud],
             'settings'        => [Role::OWNER => $edit],
 
-            'pos_sale'        => [Role::CASHIER => $add],
-            'pos_history'     => [Role::CASHIER => $view],
+            'pos_sale'          => [Role::CASHIER => $add],
+            'pos_history'       => [Role::CASHIER => $view],
             'pos_notifications' => [Role::CASHIER => $edit],
-            'pos_cancel'      => [
+            'pos_cancel'        => [
                 Role::CASHIER     => $add,
                 Role::OWNER       => [0, 0, 0, 0, 1, 0],
                 Role::ADMIN_ORDER => [0, 0, 0, 0, 1, 0],
@@ -148,6 +148,16 @@ class RolesMenusSeeder extends Seeder
                     $data
                 );
             }
+        }
+
+        foreach ($matrix as $key => $rolePerms) {
+            $allowedRoleIds = collect(array_keys($rolePerms))
+                ->map(fn ($roleName) => $roles[$roleName]->id)
+                ->all();
+
+            MenuPermission::where('menu_id', $menus[$key]->id)
+                ->whereNotIn('role_id', $allowedRoleIds)
+                ->delete();
         }
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Services\AreaAuthService;
+use App\Services\AreaHomeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,12 +13,17 @@ use Illuminate\View\View;
 
 class LoginController extends Controller
 {
-    public function __construct(private AreaAuthService $auth) {}
+    public function __construct(
+        private AreaAuthService $auth,
+        private AreaHomeService $home,
+    ) {}
 
     public function create(Request $request): View|RedirectResponse
     {
-        if ($request->user()?->hasRole(...Role::ADMIN_PANEL_ROLES)) {
-            return redirect()->route('admin.dashboard');
+        $user = $request->user();
+
+        if ($user?->hasRole(...Role::ADMIN_PANEL_ROLES)) {
+            return redirect()->route($this->home->routeFor($user));
         }
 
         return view('admin.auth.login');
@@ -32,7 +38,7 @@ class LoginController extends Controller
 
         $this->auth->attempt($request, Role::ADMIN_PANEL_ROLES);
 
-        return redirect()->route('admin.dashboard');
+        return redirect()->route($this->home->routeFor(Auth::user()));
     }
 
     public function destroy(Request $request): RedirectResponse

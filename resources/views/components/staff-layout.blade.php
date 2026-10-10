@@ -19,7 +19,7 @@ $user = auth()->user();
         {{-- Sidebar --}}
         <aside :class="sidebarOpen ? 'flex' : 'hidden'"
             class="fixed inset-y-0 left-0 z-40 w-60 shrink-0 flex-col bg-ink text-cream md:static md:flex">
-            <x-ui.brand :href="route('admin.dashboard')" class="px-5 py-5" />
+            <x-ui.brand :href="route(app(\App\Services\AreaHomeService::class)->routeFor($user))" class="px-5 py-5" />
 
             <x-nav.sidebar :menus="$menuTree" class="flex-1 overflow-y-auto px-3" />
 
