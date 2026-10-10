@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\View\Composers\MenuComposer;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -28,5 +30,7 @@ class AppServiceProvider extends ServiceProvider
             $this->foreignId('modified_by')->nullable()->constrained('users')->nullOnDelete();
             $this->timestamp('modified_on')->nullable();
         });
+
+        View::composer(['components.staff-layout', 'components.pos-layout'], MenuComposer::class);
     }
 }

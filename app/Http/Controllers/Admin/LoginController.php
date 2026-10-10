@@ -16,7 +16,7 @@ class LoginController extends Controller
 
     public function create(Request $request): View|RedirectResponse
     {
-        if ($request->user()?->hasRole(Role::ADMIN, Role::OWNER)) {
+        if ($request->user()?->hasRole(...Role::ADMIN_PANEL_ROLES)) {
             return redirect()->route('admin.dashboard');
         }
 
@@ -30,7 +30,7 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $this->auth->attempt($request, [Role::ADMIN, Role::OWNER]);
+        $this->auth->attempt($request, Role::ADMIN_PANEL_ROLES);
 
         return redirect()->route('admin.dashboard');
     }
