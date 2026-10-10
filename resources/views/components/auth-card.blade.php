@@ -20,14 +20,14 @@
             </a>
             <h1 class="mt-3 text-2xl font-bold">{{ $title }}</h1>
             @if ($subtitle)
-            <p class="mt-1 text-sm opacity-70">{{ $subtitle }}</p>
+                <p class="mt-1 text-sm opacity-70">{{ $subtitle }}</p>
             @endif
         </div>
 
-        @if (session('status'))
-        <div class="mb-4 rounded-xl bg-sage/30 px-3 py-2 text-sm text-ink {{ $dark ? 'bg-cream' : '' }}">
-            {{ session('status') }}
-        </div>
+        @if (session('status') && session('status') !== 'verification-link-sent')
+            <div class="mb-4 rounded-xl px-3 py-2 text-sm text-ink {{ $dark ? 'bg-cream' : 'bg-sage/30' }}">
+                {{ session('status') }}
+            </div>
         @endif
 
         {{ $slot }}
