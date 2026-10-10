@@ -1,15 +1,16 @@
 @props(['product'])
 
 @php
-    $emojis = ['🌷', '🌸', '🌹', '💐', '🌼', '🌺'];
-    $backgrounds = ['bg-blush', 'bg-petal/50', 'bg-sage/40', 'bg-cream'];
+$icons = ['flower-2', 'flower', 'sprout', 'leaf'];
+$backgrounds = ['bg-blush', 'bg-petal/50', 'bg-sage/40', 'bg-cream'];
+$slot = $product->id % 4;
 @endphp
 
-<div {{ $attributes->merge(['class' => 'flex items-center justify-center overflow-hidden ' . $backgrounds[$product->id % 4]]) }}>
+<div {{ $attributes->merge(['class' => 'flex items-center justify-center overflow-hidden ' . $backgrounds[$slot]]) }}>
     @if ($product->image)
-        <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->product_name }}"
-             class="h-full w-full object-cover">
+    <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->product_name }}"
+        class="h-full w-full object-cover">
     @else
-        <span class="text-6xl">{{ $emojis[$product->id % 6] }}</span>
+    <x-ui.icon :name="$icons[$slot]" class="h-16 w-16 text-moss/70" />
     @endif
 </div>
