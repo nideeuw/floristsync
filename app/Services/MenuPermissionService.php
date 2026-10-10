@@ -11,13 +11,41 @@ class MenuPermissionService
 {
     private const CACHE_TTL = 3600;
 
+    private const MENU_FIELDS = [
+        'id',
+        'menu_name',
+        'parent_id',
+        'order_no',
+        'menu_level',
+        'menu_behavior',
+        'module_group',
+        'menu_mode',
+        'menu_icon',
+        'url_link',
+    ];
+
+    private const PERMISSION_FIELDS = [
+        'is_view',
+        'is_add',
+        'is_edit',
+        'is_delete',
+        'is_approve',
+        'is_publish',
+    ];
+
     public function menuTree(int $roleId, string $moduleGroup): Collection
     {
-        return Cache::remember(
+        $tree = Cache::remember(
             "menu_tree_{$roleId}_{$moduleGroup}",
             self::CACHE_TTL,
             fn() => $this->buildTree($roleId, $moduleGroup)
         );
+
+        return collect($tree)->map(function (array $parent) {
+            $parent['children'] = collect($parent['children'])->map(fn(array $child) => (object) $child);
+
+            return (object) $parent;
+        });
     }
 
     public function can(int $roleId, string $urlLink, string $permission): bool
@@ -29,7 +57,7 @@ class MenuPermissionService
         );
     }
 
-    public function permissionFor(int $roleId, string $urlLink): ?MenuPermission
+    public function permissionFor(int $roleId, string $urlLink): ?array
     {
         return Cache::remember(
             "menu_perm_row_{$roleId}_{$urlLink}",
@@ -39,6 +67,7 @@ class MenuPermissionService
                 ->where('role_id', $roleId)
                 ->where('is_active', true)
                 ->first()
+                ?->only(self::PERMISSION_FIELDS)
         );
     }
 
@@ -47,7 +76,7 @@ class MenuPermissionService
         Cache::flush();
     }
 
-    private function buildTree(int $roleId, string $moduleGroup): Collection
+    private function buildTree(int $roleId, string $moduleGroup): array
     {
         $viewableMenuIds = MenuPermission::query()
             ->where('role_id', $roleId)
@@ -67,24 +96,28 @@ class MenuPermissionService
             ->orderBy('order_no')
             ->get();
 
-        $parents = $menus->whereNull('parent_id')->values();
         $children = $menus->whereNotNull('parent_id')->groupBy('parent_id');
 
-        return $parents->map(function (Menu $parent) use ($children) {
-            $parent->setRelation(
-                'children',
-                ($children->get($parent->id) ?? collect())->sortBy('order_no')->values()
-            );
-            return $parent;
-        });
+        return $menus->whereNull('parent_id')
+            ->map(function (Menu $parent) use ($children) {
+                $row = $parent->only(self::MENU_FIELDS);
+                $row['children'] = ($children->get($parent->id) ?? collect())
+                    ->sortBy('order_no')
+                    ->map(fn(Menu $child) => $child->only(self::MENU_FIELDS))
+                    ->values()
+                    ->all();
+
+                return $row;
+            })
+            ->values()
+            ->all();
     }
 
     private function queryPermission(int $roleId, string $urlLink, string $permission): bool
     {
         $column = 'is_' . $permission;
-        $validColumns = ['is_view', 'is_add', 'is_edit', 'is_delete', 'is_approve', 'is_publish'];
 
-        if (! in_array($column, $validColumns, true)) {
+        if (! in_array($column, self::PERMISSION_FIELDS, true)) {
             return false;
         }
 

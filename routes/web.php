@@ -39,7 +39,7 @@ Route::get('/track', [TrackController::class, 'index'])->name('track');
 // Breeze redirects here after login.
 Route::get('/dashboard', function (Request $request) {
     return match ($request->user()->role?->role_name) {
-        Role::ADMIN, Role::OWNER => redirect()->route('admin.dashboard'),
+        Role::ADMIN_ORDER, Role::ADMIN_INVENTORY, Role::OWNER => redirect()->route('admin.dashboard'),
         Role::CASHIER => redirect()->route('cashier.pos'),
         default => redirect()->route('home'),
     };
@@ -53,7 +53,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // =====================================================================
-// ADMIN AREA: login at /admin/login (admin and owner)
+// ADMIN AREA: login at /admin/login (admin order, admin inventory, owner)
 // =====================================================================
 Route::prefix('admin')->name('admin.')->group(function () {
 
@@ -62,20 +62,26 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('login', [AdminLoginController::class, 'store'])->name('login.store');
     Route::post('logout', [AdminLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
-    // Admin and owner
-    Route::middleware(['auth', 'role:admin,owner'])->group(function () {
+    // All admin panel roles
+    Route::middleware(['auth', 'role:' . implode(',', Role::ADMIN_PANEL_ROLES)])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    });
+
+    // Owner only
+    Route::middleware(['auth', 'role:' . Role::OWNER])->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports');
     });
 
-    // Admin only
-    Route::middleware(['auth', 'role:admin'])->group(function () {
-        // Online orders (pickup or courier shipping)
+    // Admin order only
+    Route::middleware(['auth', 'role:' . Role::ADMIN_ORDER])->group(function () {
         Route::get('orders', [OrderController::class, 'index'])->name('orders');
         Route::get('orders/{transaction}', [OrderController::class, 'show'])->name('orders.show');
         Route::patch('orders/{transaction}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
         Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'updateTrackingNumber'])->name('orders.tracking');
+    });
 
+    // Admin inventory only
+    Route::middleware(['auth', 'role:' . Role::ADMIN_INVENTORY])->group(function () {
         Route::resource('categories', CategoryController::class)->except('show');
         Route::resource('products', AdminProductController::class)->except('show');
         Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
@@ -94,7 +100,7 @@ Route::prefix('pos')->name('cashier.')->group(function () {
     Route::post('logout', [CashierLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
     // POS terminal and receipts (in-store sales)
-    Route::middleware(['auth', 'role:cashier'])->group(function () {
+    Route::middleware(['auth', 'role:' . Role::CASHIER])->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('pos');
         Route::get('history', [TransactionController::class, 'index'])->name('history');
         Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
