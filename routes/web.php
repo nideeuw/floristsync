@@ -14,6 +14,7 @@ use App\Http\Controllers\Customer\CatalogController;
 use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\HomeController;
 use App\Http\Controllers\Customer\TrackController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PlaceholderController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Role;
@@ -51,6 +52,13 @@ Route::middleware(['auth', 'role:' . Role::MEMBER])->group(function () {
     Route::get('/track', [TrackController::class, 'index'])
         ->middleware('menu.perm:track')->name('track');
 
+    Route::middleware('menu.perm:notifications')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+        Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead'])
+            ->whereNumber('notification')->name('notifications.read');
+    });
+
     // Breeze profile (customer account)
     Route::middleware('menu.perm:profile.edit')->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -74,6 +82,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])
             ->middleware('menu.perm:admin.dashboard')
             ->name('dashboard');
+
+        // ---- Notifications ----
+        Route::middleware('menu.perm:admin.notifications')->group(function () {
+            Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
+            Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+            Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])
+                ->whereNumber('notification')->name('notifications.read');
+        });
 
         // ---- Order management ----
         Route::middleware('menu.perm:admin.orders')->group(function () {
@@ -143,6 +159,13 @@ Route::prefix('pos')->name('cashier.')->group(function () {
 
         Route::get('cancel', PlaceholderController::class)
             ->middleware('menu.perm:cashier.cancel')->name('cancel');
+
+        Route::middleware('menu.perm:cashier.notifications')->group(function () {
+            Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
+            Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+            Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])
+                ->whereNumber('notification')->name('notifications.read');
+        });
     });
 });
 

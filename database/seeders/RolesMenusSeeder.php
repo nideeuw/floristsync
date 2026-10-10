@@ -49,6 +49,7 @@ class RolesMenusSeeder extends Seeder
 
         // Admin panel
         $m['dashboard'] = $this->menu('Dashboard', 'ADMIN_PANEL', 1, null, 'layout-dashboard', 'admin.dashboard');
+        $m['admin_notifications'] = $this->menu('Notifications', 'ADMIN_PANEL', 2, null, 'bell', 'admin.notifications');
 
         $m['order_group']     = $this->menu('Order Management', 'ADMIN_PANEL', 10, null, 'shopping-bag', null, 'group');
         $m['orders']          = $this->menu('Online Orders', 'ADMIN_PANEL', 1, $m['order_group'], 'clipboard-list', 'admin.orders');
@@ -75,6 +76,7 @@ class RolesMenusSeeder extends Seeder
         $m['pos_sale']    = $this->menu('Sales', 'POS', 1, $m['pos_group'], 'shopping-cart', 'cashier.pos');
         $m['pos_history'] = $this->menu('Transaction History', 'POS', 2, $m['pos_group'], 'calendar-days', 'cashier.history');
         $m['pos_cancel']  = $this->menu('Cancel Transaction', 'POS', 3, $m['pos_group'], 'x', 'cashier.cancel');
+        $m['pos_notifications'] = $this->menu('Notifications', 'POS', 4, $m['pos_group'], 'bell', 'cashier.notifications');
 
         // Landing page (member only)
         $m['member_group']   = $this->menu('Member', 'LANDING', 10, null, 'circle-user', null, 'group', 'topbar');
@@ -97,6 +99,7 @@ class RolesMenusSeeder extends Seeder
 
         $matrix = [
             'dashboard'       => [Role::ADMIN_ORDER => $view, Role::ADMIN_INVENTORY => $view, Role::OWNER => $view],
+            'admin_notifications' => [Role::ADMIN_ORDER => $edit, Role::ADMIN_INVENTORY => $edit],
 
             'orders'          => [Role::ADMIN_ORDER => $edit],
             'order_milestone' => [Role::ADMIN_ORDER => $view],
@@ -117,6 +120,7 @@ class RolesMenusSeeder extends Seeder
 
             'pos_sale'        => [Role::CASHIER => $add],
             'pos_history'     => [Role::CASHIER => $view],
+            'pos_notifications' => [Role::CASHIER => $edit],
             'pos_cancel'      => [
                 Role::CASHIER     => $add,
                 Role::OWNER       => [0, 0, 0, 0, 1, 0],
@@ -127,7 +131,7 @@ class RolesMenusSeeder extends Seeder
             'cart'            => [Role::MEMBER => $crud],
             'checkout'        => [Role::MEMBER => $add],
             'orders_history'  => [Role::MEMBER => $view],
-            'notifications'   => [Role::MEMBER => $view],
+            'notifications'   => [Role::MEMBER => $edit],
         ];
 
         $flags = ['is_view', 'is_add', 'is_edit', 'is_delete', 'is_approve', 'is_publish'];

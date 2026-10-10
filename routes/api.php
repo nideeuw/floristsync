@@ -38,17 +38,17 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Orders
-    Route::middleware('role:admin,cashier,owner')->group(function () {
+    Route::middleware('role:admin_order,cashier,owner')->group(function () {
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{transaction}', [OrderController::class, 'show']);
     });
-    Route::middleware('role:admin,cashier')->group(function () {
+    Route::middleware('role:admin_order,cashier')->group(function () {
         Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'trackingNumber']);
         Route::patch('orders/{transaction}/status', [OrderController::class, 'status']);
     });
 
     // Dashboard chart data
-    Route::middleware('role:admin,owner')->prefix('dashboard')->group(function () {
+    Route::middleware('role:admin_order,owner')->prefix('dashboard')->group(function () {
         Route::get('revenue', [DashboardController::class, 'revenue']);
         Route::get('top-categories', [DashboardController::class, 'topCategories']);
         Route::get('low-stock', [DashboardController::class, 'lowStock']);
