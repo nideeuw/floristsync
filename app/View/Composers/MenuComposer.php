@@ -2,7 +2,6 @@
 
 namespace App\View\Composers;
 
-use App\Models\Role;
 use App\Services\MenuPermissionService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -12,25 +11,26 @@ use Illuminate\View\View;
 
 class MenuComposer
 {
+    private const MODULES = [
+        'components.staff-layout'  => 'ADMIN_PANEL',
+        'components.pos-layout'    => 'POS',
+        'components.public-layout' => 'LANDING',
+    ];
+
     public function __construct(private MenuPermissionService $menuPermissions) {}
 
     public function compose(View $view): void
     {
         $user = Auth::user();
+        $module = self::MODULES[$view->name()] ?? null;
 
-        if (! $user || ! $user->role_id) {
+        if (! $user || ! $user->role_id || ! $module) {
             $view->with(['menuTree' => collect(), 'menuLinks' => collect()]);
 
             return;
         }
 
-        $moduleGroup = match ($user->role?->role_name) {
-            Role::CASHIER => 'POS',
-            Role::MEMBER  => 'LANDING',
-            default       => 'ADMIN_PANEL',
-        };
-
-        $tree = $this->present($this->menuPermissions->menuTree($user->role_id, $moduleGroup));
+        $tree = $this->present($this->menuPermissions->menuTree($user->role_id, $module));
 
         $view->with([
             'menuTree'  => $tree,

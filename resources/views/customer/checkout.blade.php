@@ -4,28 +4,26 @@
             return {
                 method,
                 subtotal,
-                // Dummy shipping cost. The real cost comes from RajaOngkir in a later step.
-                get shipping() { return this.method === 'delivery' ? 25000 : 0; },
-                get total() { return this.subtotal + this.shipping; },
+                get shipping() {
+                    return this.method === 'delivery' ? 25000 : 0;
+                },
+                get total() {
+                    return this.subtotal + this.shipping;
+                },
                 rupiah(n) {
-                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+                    return new Intl.NumberFormat('id-ID', {
+                        style: 'currency',
+                        currency: 'IDR',
+                        maximumFractionDigits: 0
+                    }).format(n);
                 },
             };
         }
     </script>
 
     <div class="mx-auto max-w-7xl px-4 py-10"
-         x-data="checkout({{ $subtotal }}, '{{ old('fulfillment', 'pickup') }}')">
+        x-data="checkout({{ $subtotal }}, '{{ old('fulfillment', 'pickup') }}')">
         <h1 class="mb-6 text-3xl font-bold">Checkout</h1>
-
-        @guest
-            <div class="mb-6 rounded-xl bg-blush/60 px-4 py-3 text-sm">
-                You are checking out as a guest.
-                <a href="{{ route('login') }}" class="font-semibold text-moss hover:underline">Log in</a> or
-                <a href="{{ route('register') }}" class="font-semibold text-moss hover:underline">register</a>
-                to track your orders and receive notifications.
-            </div>
-        @endguest
 
         <form method="POST" action="{{ route('checkout.store') }}" class="grid gap-6 lg:grid-cols-3">
             @csrf
@@ -38,17 +36,17 @@
                         <div>
                             <label class="mb-1 block text-sm font-medium">Full name</label>
                             <input type="text" name="name" required class="input"
-                                   value="{{ old('name', auth()->user()?->name) }}">
+                                value="{{ old('name', auth()->user()->name) }}">
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium">Phone</label>
                             <input type="text" name="phone" required class="input"
-                                   value="{{ old('phone', auth()->user()?->phone) }}">
+                                value="{{ old('phone', auth()->user()->phone) }}">
                         </div>
                         <div class="md:col-span-2">
                             <label class="mb-1 block text-sm font-medium">Email (optional)</label>
                             <input type="email" name="email" class="input"
-                                   value="{{ old('email', auth()->user()?->email) }}">
+                                value="{{ old('email', auth()->user()->email) }}">
                         </div>
                     </div>
                 </div>
@@ -59,7 +57,7 @@
 
                     <div class="grid gap-3 md:grid-cols-2">
                         <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-blush p-4"
-                               :class="method === 'pickup' ? 'border-moss ring-2 ring-sage/40' : ''">
+                            :class="method === 'pickup' ? 'border-moss ring-2 ring-sage/40' : ''">
                             <input type="radio" name="fulfillment" value="pickup" x-model="method" class="mt-1 accent-moss">
                             <span>
                                 <span class="block font-semibold">Pick up in store</span>
@@ -68,7 +66,7 @@
                         </label>
 
                         <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-blush p-4"
-                               :class="method === 'delivery' ? 'border-moss ring-2 ring-sage/40' : ''">
+                            :class="method === 'delivery' ? 'border-moss ring-2 ring-sage/40' : ''">
                             <input type="radio" name="fulfillment" value="delivery" x-model="method" class="mt-1 accent-moss">
                             <span>
                                 <span class="block font-semibold">Delivery</span>
@@ -81,14 +79,14 @@
                         <div class="md:col-span-2">
                             <label class="mb-1 block text-sm font-medium">City / district</label>
                             <input type="text" name="destination" class="input"
-                                   placeholder="Search destination (RajaOngkir search comes next)"
-                                   value="{{ old('destination') }}">
+                                placeholder="Search destination (RajaOngkir search comes next)"
+                                value="{{ old('destination') }}">
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium">Courier</label>
                             <select name="courier" class="input">
                                 @foreach (['jne' => 'JNE', 'tiki' => 'TIKI', 'pos' => 'POS Indonesia', 'sicepat' => 'SiCepat', 'jnt' => 'J&T'] as $code => $label)
-                                    <option value="{{ $code }}" @selected(old('courier') === $code)>{{ $label }}</option>
+                                <option value="{{ $code }}" @selected(old('courier')===$code)>{{ $label }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -114,10 +112,10 @@
 
                     <ul class="mt-4 space-y-2 text-sm">
                         @foreach ($items as $item)
-                            <li class="flex justify-between gap-3">
-                                <span>{{ $item->qty }} x {{ $item->product->product_name }}</span>
-                                <span class="shrink-0">{{ rupiah($item->subtotal) }}</span>
-                            </li>
+                        <li class="flex justify-between gap-3">
+                            <span>{{ $item->qty }} x {{ $item->product->product_name }}</span>
+                            <span class="shrink-0">{{ rupiah($item->subtotal) }}</span>
+                        </li>
                         @endforeach
                     </ul>
 

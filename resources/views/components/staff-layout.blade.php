@@ -26,13 +26,7 @@ $user = auth()->user();
             <div class="border-t border-white/10 p-4 text-sm">
                 <div class="font-semibold">{{ $user->name }}</div>
                 <div class="mb-2 text-xs text-cream/60">{{ str((string) $user->role?->role_name)->headline() }}</div>
-                <form method="POST" action="{{ route('admin.logout') }}">
-                    @csrf
-                    <button type="submit" class="flex items-center gap-2 text-cream/80 hover:text-white">
-                        <x-ui.icon name="log-out" class="h-4 w-4" />
-                        Log out
-                    </button>
-                </form>
+                <x-nav.logout :action="route('admin.logout')" class="gap-2 text-cream/80 hover:text-white" />
             </div>
         </aside>
 

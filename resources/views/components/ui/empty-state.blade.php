@@ -6,4 +6,7 @@
     @if ($description)
     <p class="mt-1 max-w-sm text-sm text-ink/60">{{ $description }}</p>
     @endif
+    @if ($slot->isNotEmpty())
+    <div class="mt-5">{{ $slot }}</div>
+    @endif
 </div>

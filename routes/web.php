@@ -21,7 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // =====================================================================
-// CUSTOMER AREA: login at /login (Breeze), members only
+// CUSTOMER AREA: login at /login (Breeze)
 // =====================================================================
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog');
@@ -32,12 +32,6 @@ Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add')
 Route::patch('/cart/{product}', [CartController::class, 'update'])->name('cart.update');
 Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
 
-Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-
-Route::get('/track', [TrackController::class, 'index'])->name('track');
-
-// Breeze redirects here after login.
 Route::get('/dashboard', function (Request $request) {
     return match ($request->user()->role?->role_name) {
         Role::ADMIN_ORDER, Role::ADMIN_INVENTORY, Role::OWNER => redirect()->route('admin.dashboard'),
@@ -46,11 +40,23 @@ Route::get('/dashboard', function (Request $request) {
     };
 })->middleware('auth')->name('dashboard');
 
-// Breeze profile (customer account)
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+// Members only
+Route::middleware(['auth', 'role:' . Role::MEMBER])->group(function () {
+
+    Route::middleware('menu.perm:checkout')->group(function () {
+        Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
+        Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    });
+
+    Route::get('/track', [TrackController::class, 'index'])
+        ->middleware('menu.perm:track')->name('track');
+
+    // Breeze profile (customer account)
+    Route::middleware('menu.perm:profile.edit')->group(function () {
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    });
 });
 
 // =====================================================================
@@ -117,7 +123,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 // =====================================================================
 // POS AREA: login at /pos/login (cashier only)
-// Route names keep the "cashier." prefix; only the URL is /pos.
 // =====================================================================
 Route::prefix('pos')->name('cashier.')->group(function () {
 

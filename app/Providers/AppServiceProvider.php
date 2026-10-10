@@ -31,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
             $this->timestamp('modified_on')->nullable();
         });
 
-        View::composer(['components.staff-layout', 'components.pos-layout'], MenuComposer::class);
+        View::composer([
+            'components.staff-layout',
+            'components.pos-layout',
+            'components.public-layout',
+        ], MenuComposer::class);
     }
 }

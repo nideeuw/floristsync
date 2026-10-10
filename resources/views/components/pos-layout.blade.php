@@ -18,14 +18,8 @@
             <x-nav.link :menu="$link" variant="topbar" />
             @endforeach
 
-            <form method="POST" action="{{ route('cashier.logout') }}">
-                @csrf
-                <button type="submit"
-                    class="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 hover:bg-white/20">
-                    <x-ui.icon name="log-out" class="h-4 w-4" />
-                    Log out
-                </button>
-            </form>
+            <x-nav.logout :action="route('cashier.logout')"
+                class="gap-2 rounded-full bg-white/10 px-3 py-1.5 hover:bg-white/20" />
         </nav>
     </header>
 
