@@ -2183,16 +2183,16 @@
         },
         {
             "name": "mallardduck/blade-lucide-icons",
-            "version": "2.0.25",
+            "version": "2.0.26",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mallardduck/blade-lucide-icons.git",
-                "reference": "3b33e2247956ed939226ba90fd36f262bb93eba1"
+                "reference": "a00257056fa29bdf26561889b19b693f39eb9850"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mallardduck/blade-lucide-icons/zipball/3b33e2247956ed939226ba90fd36f262bb93eba1",
-                "reference": "3b33e2247956ed939226ba90fd36f262bb93eba1",
+                "url": "https://api.github.com/repos/mallardduck/blade-lucide-icons/zipball/a00257056fa29bdf26561889b19b693f39eb9850",
+                "reference": "a00257056fa29bdf26561889b19b693f39eb9850",
                 "shasum": ""
             },
             "require": {
@@ -2237,9 +2237,9 @@
             ],
             "support": {
                 "issues": "https://github.com/mallardduck/blade-lucide-icons/issues",
-                "source": "https://github.com/mallardduck/blade-lucide-icons/tree/2.0.25"
+                "source": "https://github.com/mallardduck/blade-lucide-icons/tree/2.0.26"
             },
-            "time": "2026-10-09T04:22:01+00:00"
+            "time": "2026-10-10T04:07:15+00:00"
         },
         {
             "name": "midtrans/midtrans-php",

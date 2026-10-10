@@ -14,6 +14,7 @@ use App\Http\Controllers\Customer\CatalogController;
 use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\HomeController;
 use App\Http\Controllers\Customer\TrackController;
+use App\Http\Controllers\PlaceholderController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Role;
 use Illuminate\Http\Request;
@@ -62,29 +63,55 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('login', [AdminLoginController::class, 'store'])->name('login.store');
     Route::post('logout', [AdminLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
-    // All admin panel roles
     Route::middleware(['auth', 'role:' . implode(',', Role::ADMIN_PANEL_ROLES)])->group(function () {
-        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    });
 
-    // Owner only
-    Route::middleware(['auth', 'role:' . Role::OWNER])->group(function () {
-        Route::get('reports', [ReportController::class, 'index'])->name('reports');
-    });
+        Route::get('/', [DashboardController::class, 'index'])
+            ->middleware('menu.perm:admin.dashboard')
+            ->name('dashboard');
 
-    // Admin order only
-    Route::middleware(['auth', 'role:' . Role::ADMIN_ORDER])->group(function () {
-        Route::get('orders', [OrderController::class, 'index'])->name('orders');
-        Route::get('orders/{transaction}', [OrderController::class, 'show'])->name('orders.show');
-        Route::patch('orders/{transaction}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
-        Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'updateTrackingNumber'])->name('orders.tracking');
-    });
+        // ---- Order management ----
+        Route::middleware('menu.perm:admin.orders')->group(function () {
+            Route::get('orders', [OrderController::class, 'index'])->name('orders');
+            Route::get('orders/{transaction}', [OrderController::class, 'show'])->name('orders.show');
+            Route::patch('orders/{transaction}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
+            Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'updateTrackingNumber'])->name('orders.tracking');
+        });
 
-    // Admin inventory only
-    Route::middleware(['auth', 'role:' . Role::ADMIN_INVENTORY])->group(function () {
-        Route::resource('categories', CategoryController::class)->except('show');
-        Route::resource('products', AdminProductController::class)->except('show');
-        Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
+        Route::get('order-milestones', PlaceholderController::class)
+            ->middleware('menu.perm:admin.orders.milestone')->name('orders.milestone');
+        Route::get('order-shipping', PlaceholderController::class)
+            ->middleware('menu.perm:admin.orders.shipping')->name('orders.shipping');
+        Route::get('order-cancellations', PlaceholderController::class)
+            ->middleware('menu.perm:admin.orders.cancellations')->name('orders.cancellations');
+
+        // ---- Inventory ----
+        Route::middleware('menu.perm:admin.products.index')->group(function () {
+            Route::resource('products', AdminProductController::class)->except('show');
+            Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
+        });
+
+        Route::middleware('menu.perm:admin.categories.index')->group(function () {
+            Route::resource('categories', CategoryController::class)->except('show');
+        });
+
+        Route::get('stock', PlaceholderController::class)
+            ->middleware('menu.perm:admin.stock.index')->name('stock.index');
+        Route::get('stock/restock', PlaceholderController::class)
+            ->middleware('menu.perm:admin.stock.restock')->name('stock.restock');
+        Route::get('stock/adjustments', PlaceholderController::class)
+            ->middleware('menu.perm:admin.stock.adjust')->name('stock.adjust');
+        Route::get('stock/history', PlaceholderController::class)
+            ->middleware('menu.perm:admin.stock.history')->name('stock.history');
+
+        // ---- Business (owner) ----
+        Route::get('reports', [ReportController::class, 'index'])
+            ->middleware('menu.perm:admin.reports')->name('reports');
+        Route::get('transactions', PlaceholderController::class)
+            ->middleware('menu.perm:admin.transactions')->name('transactions');
+        Route::get('staff', PlaceholderController::class)
+            ->middleware('menu.perm:admin.staff.index')->name('staff.index');
+        Route::get('settings', PlaceholderController::class)
+            ->middleware('menu.perm:admin.settings')->name('settings');
     });
 });
 
@@ -99,11 +126,18 @@ Route::prefix('pos')->name('cashier.')->group(function () {
     Route::post('login', [CashierLoginController::class, 'store'])->name('login.store');
     Route::post('logout', [CashierLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
-    // POS terminal and receipts (in-store sales)
-    Route::middleware(['auth', 'role:' . Role::CASHIER])->group(function () {
-        Route::get('/', [PosController::class, 'index'])->name('pos');
-        Route::get('history', [TransactionController::class, 'index'])->name('history');
-        Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
+    Route::middleware(['auth', 'role:' . implode(',', Role::POS_ROLES)])->group(function () {
+
+        Route::get('/', [PosController::class, 'index'])
+            ->middleware('menu.perm:cashier.pos')->name('pos');
+
+        Route::middleware('menu.perm:cashier.history')->group(function () {
+            Route::get('history', [TransactionController::class, 'index'])->name('history');
+            Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
+        });
+
+        Route::get('cancel', PlaceholderController::class)
+            ->middleware('menu.perm:cashier.cancel')->name('cancel');
     });
 });
 
