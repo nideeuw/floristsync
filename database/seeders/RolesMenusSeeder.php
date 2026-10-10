@@ -48,41 +48,41 @@ class RolesMenusSeeder extends Seeder
         $m = [];
 
         // Admin panel
-        $m['dashboard'] = $this->menu('Dashboard', 'ADMIN_PANEL', 1, null, 'heroicon-o-home', 'admin.dashboard');
+        $m['dashboard'] = $this->menu('Dashboard', 'ADMIN_PANEL', 1, null, 'layout-dashboard', 'admin.dashboard');
 
-        $m['order_group']     = $this->menu('Order Management', 'ADMIN_PANEL', 10, null, 'heroicon-o-shopping-bag', null, 'group');
-        $m['orders']          = $this->menu('Online Orders', 'ADMIN_PANEL', 1, $m['order_group'], 'heroicon-o-clipboard-document-list', 'admin.orders');
-        $m['order_milestone'] = $this->menu('Order Milestones', 'ADMIN_PANEL', 2, $m['order_group'], 'heroicon-o-chart-bar', 'admin.orders.milestone');
-        $m['order_shipping']  = $this->menu('Shipping & Tracking', 'ADMIN_PANEL', 3, $m['order_group'], 'heroicon-o-truck', 'admin.orders.shipping');
-        $m['order_cancel']    = $this->menu('Order Cancellations', 'ADMIN_PANEL', 4, $m['order_group'], 'heroicon-o-x-circle', 'admin.orders.cancellations');
+        $m['order_group']     = $this->menu('Order Management', 'ADMIN_PANEL', 10, null, 'shopping-bag', null, 'group');
+        $m['orders']          = $this->menu('Online Orders', 'ADMIN_PANEL', 1, $m['order_group'], 'clipboard-list', 'admin.orders');
+        $m['order_milestone'] = $this->menu('Order Milestones', 'ADMIN_PANEL', 2, $m['order_group'], 'list-checks', 'admin.orders.milestone');
+        $m['order_shipping']  = $this->menu('Shipping & Tracking', 'ADMIN_PANEL', 3, $m['order_group'], 'truck', 'admin.orders.shipping');
+        $m['order_cancel']    = $this->menu('Order Cancellations', 'ADMIN_PANEL', 4, $m['order_group'], 'circle-x', 'admin.orders.cancellations');
 
-        $m['inventory_group'] = $this->menu('Inventory', 'ADMIN_PANEL', 20, null, 'heroicon-o-squares-2x2', null, 'group');
-        $m['products']        = $this->menu('Product Catalog', 'ADMIN_PANEL', 1, $m['inventory_group'], 'heroicon-o-tag', 'admin.products.index');
-        $m['categories']      = $this->menu('Categories', 'ADMIN_PANEL', 2, $m['inventory_group'], 'heroicon-o-folder', 'admin.categories.index');
-        $m['stock']           = $this->menu('Stock', 'ADMIN_PANEL', 3, $m['inventory_group'], 'heroicon-o-archive-box', 'admin.stock.index');
-        $m['restock']         = $this->menu('Restock', 'ADMIN_PANEL', 4, $m['inventory_group'], 'heroicon-o-plus-circle', 'admin.stock.restock');
-        $m['stock_adjust']    = $this->menu('Stock Adjustment', 'ADMIN_PANEL', 5, $m['inventory_group'], 'heroicon-o-adjustments-horizontal', 'admin.stock.adjust');
-        $m['stock_history']   = $this->menu('Stock History', 'ADMIN_PANEL', 6, $m['inventory_group'], 'heroicon-o-clock', 'admin.stock.history');
+        $m['inventory_group'] = $this->menu('Inventory', 'ADMIN_PANEL', 20, null, 'boxes', null, 'group');
+        $m['products']        = $this->menu('Product Catalog', 'ADMIN_PANEL', 1, $m['inventory_group'], 'tag', 'admin.products.index');
+        $m['categories']      = $this->menu('Categories', 'ADMIN_PANEL', 2, $m['inventory_group'], 'folder', 'admin.categories.index');
+        $m['stock']           = $this->menu('Stock', 'ADMIN_PANEL', 3, $m['inventory_group'], 'package', 'admin.stock.index');
+        $m['restock']         = $this->menu('Restock', 'ADMIN_PANEL', 4, $m['inventory_group'], 'circle-plus', 'admin.stock.restock');
+        $m['stock_adjust']    = $this->menu('Stock Adjustment', 'ADMIN_PANEL', 5, $m['inventory_group'], 'sliders-horizontal', 'admin.stock.adjust');
+        $m['stock_history']   = $this->menu('Stock History', 'ADMIN_PANEL', 6, $m['inventory_group'], 'history', 'admin.stock.history');
 
-        $m['owner_group']  = $this->menu('Business', 'ADMIN_PANEL', 30, null, 'heroicon-o-briefcase', null, 'group');
-        $m['reports']      = $this->menu('Reports & Analytics', 'ADMIN_PANEL', 1, $m['owner_group'], 'heroicon-o-document-chart-bar', 'admin.reports');
-        $m['transactions'] = $this->menu('Transaction History', 'ADMIN_PANEL', 2, $m['owner_group'], 'heroicon-o-receipt-refund', 'admin.transactions');
-        $m['staff']        = $this->menu('Staff Accounts', 'ADMIN_PANEL', 3, $m['owner_group'], 'heroicon-o-users', 'admin.staff.index');
-        $m['settings']     = $this->menu('Store Settings', 'ADMIN_PANEL', 4, $m['owner_group'], 'heroicon-o-cog-6-tooth', 'admin.settings');
+        $m['owner_group']  = $this->menu('Business', 'ADMIN_PANEL', 30, null, 'briefcase', null, 'group');
+        $m['reports']      = $this->menu('Reports & Analytics', 'ADMIN_PANEL', 1, $m['owner_group'], 'trending-up', 'admin.reports');
+        $m['transactions'] = $this->menu('Transaction History', 'ADMIN_PANEL', 2, $m['owner_group'], 'receipt', 'admin.transactions');
+        $m['staff']        = $this->menu('Staff Accounts', 'ADMIN_PANEL', 3, $m['owner_group'], 'users', 'admin.staff.index');
+        $m['settings']     = $this->menu('Store Settings', 'ADMIN_PANEL', 4, $m['owner_group'], 'settings', 'admin.settings');
 
         // POS
-        $m['pos_group']   = $this->menu('POS', 'POS', 10, null, 'heroicon-o-computer-desktop', null, 'group');
-        $m['pos_sale']    = $this->menu('Sales', 'POS', 1, $m['pos_group'], 'heroicon-o-shopping-cart', 'cashier.pos');
-        $m['pos_history'] = $this->menu('Transaction History', 'POS', 2, $m['pos_group'], 'heroicon-o-calendar-days', 'cashier.history');
-        $m['pos_cancel']  = $this->menu('Cancel Transaction', 'POS', 3, $m['pos_group'], 'heroicon-o-x-mark', 'cashier.cancel');
+        $m['pos_group']   = $this->menu('POS', 'POS', 10, null, 'monitor', null, 'group');
+        $m['pos_sale']    = $this->menu('Sales', 'POS', 1, $m['pos_group'], 'shopping-cart', 'cashier.pos');
+        $m['pos_history'] = $this->menu('Transaction History', 'POS', 2, $m['pos_group'], 'calendar-days', 'cashier.history');
+        $m['pos_cancel']  = $this->menu('Cancel Transaction', 'POS', 3, $m['pos_group'], 'x', 'cashier.cancel');
 
         // Landing page (member only)
-        $m['member_group']   = $this->menu('Member', 'LANDING', 10, null, 'heroicon-o-user-circle', null, 'group', 'topbar');
-        $m['profile']        = $this->menu('Profile', 'LANDING', 1, $m['member_group'], 'heroicon-o-user', 'profile.edit', 'link', 'topbar');
-        $m['cart']           = $this->menu('Cart', 'LANDING', 2, $m['member_group'], 'heroicon-o-shopping-cart', 'cart', 'link', 'topbar');
-        $m['checkout']       = $this->menu('Checkout', 'LANDING', 3, $m['member_group'], 'heroicon-o-credit-card', 'checkout', 'link', 'topbar');
-        $m['orders_history'] = $this->menu('Order History', 'LANDING', 4, $m['member_group'], 'heroicon-o-document-text', 'track', 'link', 'topbar');
-        $m['notifications']  = $this->menu('Notifications', 'LANDING', 5, $m['member_group'], 'heroicon-o-bell', 'notifications', 'link', 'topbar');
+        $m['member_group']   = $this->menu('Member', 'LANDING', 10, null, 'circle-user', null, 'group', 'topbar');
+        $m['profile']        = $this->menu('Profile', 'LANDING', 1, $m['member_group'], 'user', 'profile.edit', 'link', 'topbar');
+        $m['cart']           = $this->menu('Cart', 'LANDING', 2, $m['member_group'], 'shopping-cart', 'cart', 'link', 'topbar');
+        $m['checkout']       = $this->menu('Checkout', 'LANDING', 3, $m['member_group'], 'credit-card', 'checkout', 'link', 'topbar');
+        $m['orders_history'] = $this->menu('Order History', 'LANDING', 4, $m['member_group'], 'file-text', 'track', 'link', 'topbar');
+        $m['notifications']  = $this->menu('Notifications', 'LANDING', 5, $m['member_group'], 'bell', 'notifications', 'link', 'topbar');
 
         return $m;
     }
