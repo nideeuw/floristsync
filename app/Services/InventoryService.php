@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 
 class InventoryService
 {
+    public function __construct(private NotificationService $notifications) {}
+
     public function reduce(Product $product, int $qty, string $notes = 'Sale'): void
     {
         $updated = Product::whereKey($product->id)
@@ -21,6 +23,7 @@ class InventoryService
         }
 
         $this->log($product->id, -$qty, 'out', $notes);
+        $this->notifyIfLow($product);
     }
 
     public function add(Product $product, int $qty, string $changeType = 'in', string $notes = 'Restock'): void
@@ -53,12 +56,22 @@ class InventoryService
         }
 
         $this->log($product->id, $change, 'adjustment', $notes);
+        $this->notifyIfLow($product);
     }
 
     public function lowStock(): Collection
     {
         return Product::active()->lowStock()->orderBy('stock')
             ->get(['id', 'product_name', 'stock']);
+    }
+
+    private function notifyIfLow(Product $product): void
+    {
+        $current = $product->fresh();
+
+        if ($current) {
+            $this->notifications->notifyLowStock($current);
+        }
     }
 
     private function log(int $productId, int $change, string $changeType, string $notes): void
