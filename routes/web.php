@@ -20,6 +20,7 @@ use App\Http\Controllers\Cashier\CancelTransactionController;
 use App\Http\Controllers\Cashier\LoginController as CashierLoginController;
 use App\Http\Controllers\Cashier\PosController;
 use App\Http\Controllers\Cashier\TransactionController;
+use App\Http\Controllers\Customer\CancelOrderController;
 use App\Http\Controllers\Customer\CartController;
 use App\Http\Controllers\Customer\CatalogController;
 use App\Http\Controllers\Customer\CheckoutController;
@@ -58,6 +59,9 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
 
     Route::get('/track', [TrackController::class, 'index'])
         ->middleware('menu.perm:track')->name('track');
+
+    Route::post('/track/{transaction}/cancel', [CancelOrderController::class, 'store'])
+        ->middleware('menu.perm:track,edit')->name('track.cancel');
 
     Route::middleware('menu.perm:notifications')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');

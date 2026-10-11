@@ -23,10 +23,15 @@ class Transaction extends Model
     public const COMPLETED        = 'completed';
     public const CANCELLED        = 'cancelled';
 
+    public const CANCEL_PENDING  = 'pending';
+    public const CANCEL_APPROVED = 'approved';
+    public const CANCEL_REJECTED = 'rejected';
+
     protected $guarded = ['id'];
     protected $casts = [
         'is_active' => 'boolean',
         'cancelled_at' => 'datetime',
+        'cancel_requested_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

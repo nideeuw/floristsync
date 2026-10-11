@@ -130,7 +130,7 @@ class RolesMenusSeeder extends Seeder
             'profile'         => [Role::MEMBER => [1, 0, 1, 1, 0, 0]],
             'cart'            => [Role::MEMBER => $crud],
             'checkout'        => [Role::MEMBER => $add],
-            'orders_history'  => [Role::MEMBER => $view],
+            'orders_history'  => [Role::MEMBER => $edit],
             'notifications'   => [Role::MEMBER => $edit],
         ];
 
