@@ -1,4 +1,4 @@
-﻿<x-public-layout title="Checkout">
+<x-public-layout title="Checkout">
     <script>
         function checkout(subtotal, method) {
             return {
@@ -135,7 +135,7 @@
                     </div>
 
                     <button class="btn-primary mt-6 w-full">Place Order &amp; Pay</button>
-                    <p class="mt-2 text-center text-xs text-gray-500">Payment via Midtrans (QRIS, VA, e-wallet).</p>
+                    <p class="mt-2 text-center text-xs text-gray-500">Payment via Midtrans (card, QRIS, e-wallet).</p>
                 </div>
             </div>
         </form>

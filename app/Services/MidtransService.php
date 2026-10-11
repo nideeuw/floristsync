@@ -10,6 +10,10 @@ use Midtrans\Snap;
 
 class MidtransService
 {
+    private const ENABLED_PAYMENTS = ['credit_card', 'gopay', 'shopeepay', 'other_qris'];
+
+    private const PAYMENT_WINDOW_MINUTES = 60;
+
     public function __construct()
     {
         Config::$serverKey = config('services.midtrans.server_key');
@@ -18,10 +22,6 @@ class MidtransService
         Config::$is3ds = true;
     }
 
-    /**
-     * Transaction must have `details.product` and `payment` loaded.
-     * $customer = ['name', 'email', 'phone'] (sent to Midtrans only, not stored).
-     */
     public function createSnapToken(Transaction $transaction, array $customer = []): string
     {
         $items = $transaction->details->map(fn($d) => [
@@ -31,7 +31,6 @@ class MidtransService
             'name' => Str::limit($d->product->product_name, 50, ''),
         ])->values()->all();
 
-        // Shipping cost = total - sum of item subtotals.
         $shippingCost = (int) $transaction->total - (int) $transaction->details->sum('subtotal');
 
         if ($shippingCost > 0) {
@@ -49,10 +48,14 @@ class MidtransService
                 'phone' => $customer['phone'] ?? null,
             ]),
             'item_details' => $items,
+            'enabled_payments' => self::ENABLED_PAYMENTS,
+            'expiry' => [
+                'unit' => 'minutes',
+                'duration' => self::PAYMENT_WINDOW_MINUTES,
+            ],
         ]);
     }
 
-    /** Read the Midtrans webhook. The library verifies the status directly with Midtrans. */
     public function readNotification(): array
     {
         $raw = (array) (new Notification())->getResponse();

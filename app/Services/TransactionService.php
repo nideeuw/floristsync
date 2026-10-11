@@ -20,10 +20,6 @@ class TransactionService
         private NotificationService $notifications,
     ) {}
 
-    /**
-     * POS (cashier) transaction.
-     * $items = [['product_id' => 1, 'qty' => 2], ...]
-     */
     public function createPosTransaction(array $items, int $cashierId, string $paymentMethod, int $paidAmount = 0): Transaction
     {
         return DB::transaction(function () use ($items, $cashierId, $paymentMethod, $paidAmount) {
@@ -54,16 +50,10 @@ class TransactionService
         });
     }
 
-    /**
-     * Online order (guest or member).
-     * $customer = ['name', 'email', 'phone']
-     * $delivery = ['method' => 'pickup|delivery', 'address', 'destination_id', 'courier', 'service']
-     */
-    public function createOnlineTransaction(array $items, array $customer, array $delivery, ?int $userId = null): Transaction
+    public function createOnlineTransaction(array $items, array $customer, array $delivery, int $userId): Transaction
     {
         $isDelivery = $delivery['method'] === 'delivery';
 
-        // Ask RajaOngkir first (outside the DB transaction). Never trust a cost sent by the browser.
         $shippingCost = $isDelivery
             ? $this->shipping->getServiceCost(
                 (int) $delivery['destination_id'],
@@ -77,7 +67,7 @@ class TransactionService
             [$rows, $subtotal] = $this->prepareItems($items);
 
             $transaction = Transaction::create([
-                'user_id' => $userId, // null = guest
+                'user_id' => $userId,
                 'transaction_type' => Transaction::TYPE_ONLINE,
                 'status' => Transaction::PENDING_PAYMENT,
                 'shipping_address' => $isDelivery
@@ -91,7 +81,7 @@ class TransactionService
 
             Payment::create([
                 'transaction_id' => $transaction->id,
-                'midtrans_order_id' => 'FS-' . $transaction->id . '-' . strtoupper(Str::random(6)),
+                'midtrans_order_id' => 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6)),
                 'payment_status' => 'pending',
                 'amount' => $transaction->total,
             ]);
@@ -99,7 +89,6 @@ class TransactionService
             return $transaction->load('details.product', 'payment');
         });
 
-        // Call Midtrans outside the DB transaction.
         try {
             $token = $this->midtrans->createSnapToken($transaction, $customer);
             $transaction->payment->update(['snap_token' => $token]);
@@ -111,7 +100,6 @@ class TransactionService
         return $transaction;
     }
 
-    /** Called from the Midtrans webhook. Safe to run more than once (idempotent). */
     public function updatePaymentStatus(array $notification): void
     {
         DB::transaction(function () use ($notification) {
@@ -135,7 +123,7 @@ class TransactionService
                 $transaction->update(['status' => Transaction::PROCESSING]);
 
                 $this->notifications->notifyRoles(
-                    [Role::ADMIN_ORDER, Role::CASHIER],
+                    [Role::ADMIN_ORDER],
                     'New paid order',
                     "Order #{$transaction->id} has been paid and is ready to be processed.",
                     'new_order'
@@ -155,14 +143,13 @@ class TransactionService
         });
     }
 
-    /** Cancel an unpaid order and return the stock. */
     public function cancel(Transaction $transaction): void
     {
         DB::transaction(function () use ($transaction) {
             $transaction->refresh();
 
             if ($transaction->status !== Transaction::PENDING_PAYMENT) {
-                return; // already processed or cancelled, do not restock twice
+                return;
             }
 
             foreach ($transaction->details()->with('product')->get() as $detail) {
@@ -173,7 +160,6 @@ class TransactionService
         });
     }
 
-    /** Admin enters the courier tracking number. Status becomes "shipped". */
     public function inputTrackingNumber(Transaction $transaction, string $trackingNumber): Transaction
     {
         if (! $transaction->isDelivery() || $transaction->status !== Transaction::PROCESSING) {
@@ -201,8 +187,6 @@ class TransactionService
         return $transaction;
     }
 
-    // ---------- private ----------
-
     private function notifyStatus(Transaction $transaction, string $message): void
     {
         if ($transaction->user_id) {
@@ -210,7 +194,6 @@ class TransactionService
         }
     }
 
-    /** Get prices from the DB and lock product rows. Must run inside DB::transaction. */
     private function prepareItems(array $items): array
     {
         $products = Product::available()

@@ -28,6 +28,7 @@ use App\Http\Controllers\Customer\TrackController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Role;
+use App\Services\AreaHomeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -43,12 +44,12 @@ Route::post('/cart/{product}', [CartController::class, 'add'])->name('cart.add')
 Route::patch('/cart/{product}', [CartController::class, 'update'])->name('cart.update');
 Route::delete('/cart/{product}', [CartController::class, 'remove'])->name('cart.remove');
 
-Route::get('/dashboard', function (Request $request, \App\Services\AreaHomeService $home) {
+Route::get('/dashboard', function (Request $request, AreaHomeService $home) {
     return redirect()->route($home->routeFor($request->user()));
 })->middleware('auth')->name('dashboard');
 
 // Members only
-Route::middleware(['auth', 'role:' . Role::MEMBER])->group(function () {
+Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
 
     Route::middleware('menu.perm:checkout')->group(function () {
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
@@ -83,7 +84,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('login', [AdminLoginController::class, 'store'])->name('login.store');
     Route::post('logout', [AdminLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
-    Route::middleware(['auth', 'role:' . implode(',', Role::ADMIN_PANEL_ROLES)])->group(function () {
+    Route::middleware(['auth', 'role:'.implode(',', Role::ADMIN_PANEL_ROLES)])->group(function () {
 
         Route::get('/', [DashboardController::class, 'index'])
             ->middleware('menu.perm:admin.dashboard')
@@ -171,7 +172,7 @@ Route::prefix('pos')->name('cashier.')->group(function () {
     Route::post('login', [CashierLoginController::class, 'store'])->name('login.store');
     Route::post('logout', [CashierLoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
-    Route::middleware(['auth', 'role:' . implode(',', Role::POS_ROLES)])->group(function () {
+    Route::middleware(['auth', 'role:'.implode(',', Role::POS_ROLES)])->group(function () {
 
         Route::get('/', [PosController::class, 'index'])
             ->middleware('menu.perm:cashier.pos')->name('pos');
@@ -185,14 +186,7 @@ Route::prefix('pos')->name('cashier.')->group(function () {
             Route::get('cancel', [CancelTransactionController::class, 'index'])->name('cancel');
             Route::post('cancel/{transaction}', [CancelTransactionController::class, 'store'])->name('cancel.store');
         });
-
-        Route::middleware('menu.perm:cashier.notifications')->group(function () {
-            Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');
-            Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
-            Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead'])
-                ->whereNumber('notification')->name('notifications.read');
-        });
     });
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

@@ -16,20 +16,26 @@ class RolesMenusSeeder extends Seeder
     {
         $roles = $this->seedRoles();
         $menus = $this->seedMenus();
+        $this->pruneMenus($menus);
         $this->seedPermissions($roles, $menus);
         $this->seedUsers($roles);
 
         MenuPermissionService::flushCache();
     }
 
+    private function pruneMenus(array $menus): void
+    {
+        Menu::whereNotIn('id', collect($menus)->pluck('id'))->delete();
+    }
+
     private function seedRoles(): array
     {
         $data = [
-            Role::MEMBER          => 'Registered customer, can browse and place online orders',
-            Role::ADMIN_ORDER     => 'Manages online orders, shipping, and cancellations',
+            Role::MEMBER => 'Registered customer, can browse and place online orders',
+            Role::ADMIN_ORDER => 'Manages online orders, shipping, and cancellations',
             Role::ADMIN_INVENTORY => 'Manages product catalog and stock',
-            Role::CASHIER         => 'Handles POS in-store transactions',
-            Role::OWNER           => 'Dashboard, reports, staff accounts, store settings',
+            Role::CASHIER => 'Handles POS in-store transactions',
+            Role::OWNER => 'Dashboard, reports, staff accounts, store settings',
         ];
 
         $roles = [];
@@ -76,7 +82,6 @@ class RolesMenusSeeder extends Seeder
         $m['pos_sale']    = $this->menu('Sales', 'POS', 1, $m['pos_group'], 'shopping-cart', 'cashier.pos');
         $m['pos_history'] = $this->menu('Transaction History', 'POS', 2, $m['pos_group'], 'calendar-days', 'cashier.history');
         $m['pos_cancel']  = $this->menu('Cancel Transaction', 'POS', 3, $m['pos_group'], 'x', 'cashier.cancel');
-        $m['pos_notifications'] = $this->menu('Notifications', 'POS', 4, $m['pos_group'], 'bell', 'cashier.notifications');
 
         // Landing page (member only)
         $m['member_group']   = $this->menu('Member', 'LANDING', 10, null, 'circle-user', null, 'group', 'topbar');
@@ -120,7 +125,6 @@ class RolesMenusSeeder extends Seeder
 
             'pos_sale'          => [Role::CASHIER => $add],
             'pos_history'       => [Role::CASHIER => $view],
-            'pos_notifications' => [Role::CASHIER => $edit],
             'pos_cancel'        => [Role::CASHIER => $add],
 
             'profile'         => [Role::MEMBER => [1, 0, 1, 1, 0, 0]],
@@ -148,7 +152,7 @@ class RolesMenusSeeder extends Seeder
 
         foreach ($matrix as $key => $rolePerms) {
             $allowedRoleIds = collect(array_keys($rolePerms))
-                ->map(fn ($roleName) => $roles[$roleName]->id)
+                ->map(fn($roleName) => $roles[$roleName]->id)
                 ->all();
 
             MenuPermission::where('menu_id', $menus[$key]->id)

@@ -3,7 +3,7 @@ $categoryIcons = ['flower-2', 'flower', 'sprout', 'leaf', 'heart', 'gift'];
 $benefits = [
 ['icon' => 'leaf', 'title' => 'Fresh Flowers', 'text' => 'Arranged fresh and carefully by our florists every day.'],
 ['icon' => 'truck', 'title' => 'Pickup or Delivery', 'text' => 'Pick up at our store or get it delivered by courier.'],
-['icon' => 'shield-check', 'title' => 'Secure Payment', 'text' => 'Pay with QRIS, Virtual Account, or e-wallet.'],
+['icon' => 'shield-check', 'title' => 'Secure Payment', 'text' => 'Pay with card, QRIS, or e-wallet.'],
 ];
 @endphp
 

@@ -91,7 +91,7 @@ class DummyOrdersSeeder extends Seeder
                 'midtrans_order_id' => $isPos ? null : 'FS-' . $transaction->id . '-' . strtoupper(Str::random(6)),
                 'payment_method' => $isPos
                     ? fake()->randomElement(['cash', 'qris', 'debit'])
-                    : fake()->randomElement(['qris', 'bank_transfer', 'gopay']),
+                    : fake()->randomElement(['qris', 'credit_card', 'gopay']),
                 'payment_status' => match (true) {
                     $paid => 'settlement',
                     $status === Transaction::CANCELLED => 'expire',
