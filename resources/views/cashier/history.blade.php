@@ -47,8 +47,12 @@
                             <td class="px-4 py-3 uppercase">{{ $transaction->payment?->payment_method ?? '-' }}</td>
                             <td class="px-4 py-3 font-semibold">{{ rupiah($transaction->total) }}</td>
                             <td class="px-4 py-3 text-right">
+                                @if ($transaction->status === 'completed')
                                 <a href="{{ route('cashier.receipt', $transaction) }}" target="_blank" rel="noopener"
                                     class="font-semibold text-moss hover:underline">Reprint</a>
+                                @else
+                                <x-status-badge :status="$transaction->status" />
+                                @endif
                             </td>
                         </tr>
                         @empty
