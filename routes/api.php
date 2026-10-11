@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\MidtransController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PosController;
+use App\Http\Controllers\Api\PosQrisController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ShippingController;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::middleware('role:cashier')->prefix('pos')->group(function () {
         Route::get('products', [PosController::class, 'products']);
         Route::post('transactions', [PosController::class, 'store']);
+        Route::post('transactions/{transaction}/qris', [PosQrisController::class, 'store']);
+        Route::get('transactions/{transaction}/qris', [PosQrisController::class, 'show']);
     });
 
     // Orders
