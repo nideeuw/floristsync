@@ -10,9 +10,8 @@ use Illuminate\View\View;
 class NotificationController extends Controller
 {
     private const LAYOUTS = [
-        'admin.'   => 'staff-layout',
-        'cashier.' => 'pos-layout',
-        ''         => 'public-layout',
+        'admin.' => 'staff-layout',
+        ''       => 'public-layout',
     ];
 
     public function index(Request $request): View

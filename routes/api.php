@@ -13,12 +13,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
 
-Route::middleware('throttle:30,1')->group(function () {
-    Route::get('track/{orderNumber}', [OrderController::class, 'track']); // guest order tracking
-    Route::get('shipping/destinations', [ShippingController::class, 'destinations']);
-    Route::post('shipping/cost', [ShippingController::class, 'cost']);
-});
-
 // Midtrans webhook (no CSRF, no login)
 Route::post('midtrans/notification', [MidtransController::class, 'notification']);
 
@@ -26,10 +20,17 @@ Route::post('midtrans/notification', [MidtransController::class, 'notification']
 Route::middleware(['web', 'auth'])->group(function () {
 
     // Any logged-in user
-    Route::get('my/orders', [OrderController::class, 'mine']);
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+    // Members only: guests cannot order, so they cannot track orders or calculate shipping
+    Route::middleware(['role:member', 'throttle:30,1'])->group(function () {
+        Route::get('my/orders', [OrderController::class, 'mine']);
+        Route::get('track/{orderNumber}', [OrderController::class, 'track']);
+        Route::get('shipping/destinations', [ShippingController::class, 'destinations']);
+        Route::post('shipping/cost', [ShippingController::class, 'cost']);
+    });
 
     // POS cashier
     Route::middleware('role:cashier')->prefix('pos')->group(function () {
