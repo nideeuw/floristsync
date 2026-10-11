@@ -118,7 +118,10 @@ class TransactionService
             $paid = $status === 'settlement'
                 || ($status === 'capture' && $notification['fraud_status'] === 'accept');
 
-            if ($paid && $transaction->status === Transaction::PENDING_PAYMENT) {
+            if ($paid && $transaction->transaction_type === Transaction::TYPE_POS && $transaction->status === Transaction::PENDING_PAYMENT) {
+                $payment->update(['payment_date' => now()]);
+                $transaction->update(['status' => Transaction::COMPLETED]);
+            } elseif ($paid && $transaction->status === Transaction::PENDING_PAYMENT) {
                 $payment->update(['payment_date' => now()]);
                 $transaction->update(['status' => Transaction::PROCESSING]);
 
@@ -175,7 +178,7 @@ class TransactionService
 
     public function changeStatus(Transaction $transaction, string $newStatus): Transaction
     {
-        if ($transaction->transaction_type !== Transaction::TYPE_ONLINE || $transaction->status === Transaction::PENDING_PAYMENT) {
+        if ($transaction->transaction_type !== Transaction::TYPE_ONLINE || in_array($transaction->status, [Transaction::PENDING_PAYMENT, Transaction::CANCELLED], true)) {
             throw new DomainException('This order status cannot be changed.');
         }
 

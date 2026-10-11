@@ -42,7 +42,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Orders
-    Route::middleware('role:admin_order,cashier,owner')->group(function () {
+    Route::middleware('role:admin_order,owner')->group(function () {
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{transaction}', [OrderController::class, 'show']);
     });
