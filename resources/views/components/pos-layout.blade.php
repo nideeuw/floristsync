@@ -1,27 +1,7 @@
 @props(['title' => 'POS'])
 
-<x-layouts.base :title="$title" :suffix="config('app.name') . ' POS'" class="h-screen overflow-hidden">
-
-    <header class="flex h-14 items-center justify-between bg-ink px-4 text-cream"
-        x-data="{ now: new Date() }" x-init="setInterval(() => now = new Date(), 1000)">
-        <x-ui.brand :href="route('cashier.pos')" :name="config('app.name') . ' POS'"
-            :subtitle="'Cashier: ' . auth()->user()->name" />
-
-        <div class="hidden text-center leading-tight sm:block">
-            <div class="font-mono text-lg" x-text="now.toLocaleTimeString('en-GB')"></div>
-            <div class="text-xs text-cream/60"
-                x-text="now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })"></div>
-        </div>
-
-        <nav class="flex items-center gap-2 text-sm" aria-label="Main navigation">
-            @foreach ($menuLinks as $link)
-            <x-nav.link :menu="$link" variant="topbar" />
-            @endforeach
-
-            <x-nav.logout :action="route('cashier.logout')"
-                class="gap-2 rounded-full bg-white/10 px-3 py-1.5 hover:bg-white/20" />
-        </nav>
-    </header>
-
+<x-panel-layout :title="$title" :menus="$menuTree" :user="auth()->user()"
+    :home="route('cashier.pos')" :logout="route('cashier.logout')"
+    :brand="config('app.name') . ' POS'" :suffix="config('app.name') . ' POS'" :fixed="true">
     {{ $slot }}
-</x-layouts.base>
+</x-panel-layout>
