@@ -3,9 +3,20 @@
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LoginController as AdminLoginController;
+use App\Http\Controllers\Admin\OrderCancellationController;
 use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\OrderMilestoneController;
+use App\Http\Controllers\Admin\OrderShippingController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\RestockController;
+use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\StockAdjustmentController;
+use App\Http\Controllers\Admin\StockController;
+use App\Http\Controllers\Admin\StockHistoryController;
+use App\Http\Controllers\Admin\TransactionController as AdminTransactionController;
+use App\Http\Controllers\Cashier\CancelTransactionController;
 use App\Http\Controllers\Cashier\LoginController as CashierLoginController;
 use App\Http\Controllers\Cashier\PosController;
 use App\Http\Controllers\Cashier\TransactionController;
@@ -15,7 +26,6 @@ use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\HomeController;
 use App\Http\Controllers\Customer\TrackController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\PlaceholderController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Role;
 use Illuminate\Http\Request;
@@ -95,12 +105,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::patch('orders/{transaction}/tracking-number', [OrderController::class, 'updateTrackingNumber'])->name('orders.tracking');
         });
 
-        Route::get('order-milestones', PlaceholderController::class)
+        Route::get('order-milestones', [OrderMilestoneController::class, 'index'])
             ->middleware('menu.perm:admin.orders.milestone')->name('orders.milestone');
-        Route::get('order-shipping', PlaceholderController::class)
+
+        Route::get('order-shipping', [OrderShippingController::class, 'index'])
             ->middleware('menu.perm:admin.orders.shipping')->name('orders.shipping');
-        Route::get('order-cancellations', PlaceholderController::class)
+
+        Route::get('order-cancellations', [OrderCancellationController::class, 'index'])
             ->middleware('menu.perm:admin.orders.cancellations')->name('orders.cancellations');
+        Route::patch('order-cancellations/{transaction}/approve', [OrderCancellationController::class, 'approve'])
+            ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.approve');
+        Route::patch('order-cancellations/{transaction}/reject', [OrderCancellationController::class, 'reject'])
+            ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.reject');
 
         // ---- Inventory ----
         Route::middleware('menu.perm:admin.products.index')->group(function () {
@@ -112,24 +128,36 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::resource('categories', CategoryController::class)->except('show');
         });
 
-        Route::get('stock', PlaceholderController::class)
+        Route::get('stock', [StockController::class, 'index'])
             ->middleware('menu.perm:admin.stock.index')->name('stock.index');
-        Route::get('stock/restock', PlaceholderController::class)
-            ->middleware('menu.perm:admin.stock.restock')->name('stock.restock');
-        Route::get('stock/adjustments', PlaceholderController::class)
-            ->middleware('menu.perm:admin.stock.adjust')->name('stock.adjust');
-        Route::get('stock/history', PlaceholderController::class)
+
+        Route::middleware('menu.perm:admin.stock.restock')->group(function () {
+            Route::get('stock/restock', [RestockController::class, 'index'])->name('stock.restock');
+            Route::post('stock/restock', [RestockController::class, 'store'])->name('stock.restock.store');
+        });
+
+        Route::middleware('menu.perm:admin.stock.adjust')->group(function () {
+            Route::get('stock/adjustments', [StockAdjustmentController::class, 'index'])->name('stock.adjust');
+            Route::post('stock/adjustments', [StockAdjustmentController::class, 'store'])->name('stock.adjust.store');
+        });
+
+        Route::get('stock/history', [StockHistoryController::class, 'index'])
             ->middleware('menu.perm:admin.stock.history')->name('stock.history');
 
         // ---- Business (owner) ----
         Route::get('reports', [ReportController::class, 'index'])
             ->middleware('menu.perm:admin.reports')->name('reports');
-        Route::get('transactions', PlaceholderController::class)
+
+        Route::get('transactions', [AdminTransactionController::class, 'index'])
             ->middleware('menu.perm:admin.transactions')->name('transactions');
-        Route::get('staff', PlaceholderController::class)
-            ->middleware('menu.perm:admin.staff.index')->name('staff.index');
-        Route::get('settings', PlaceholderController::class)
-            ->middleware('menu.perm:admin.settings')->name('settings');
+
+        Route::resource('staff', StaffController::class)->except('show')
+            ->middleware('menu.perm:admin.staff.index');
+
+        Route::middleware('menu.perm:admin.settings')->group(function () {
+            Route::get('settings', [SettingController::class, 'index'])->name('settings');
+            Route::patch('settings', [SettingController::class, 'update'])->name('settings.update');
+        });
     });
 });
 
@@ -153,8 +181,10 @@ Route::prefix('pos')->name('cashier.')->group(function () {
             Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
         });
 
-        Route::get('cancel', PlaceholderController::class)
-            ->middleware('menu.perm:cashier.cancel')->name('cancel');
+        Route::middleware('menu.perm:cashier.cancel')->group(function () {
+            Route::get('cancel', [CancelTransactionController::class, 'index'])->name('cancel');
+            Route::post('cancel/{transaction}', [CancelTransactionController::class, 'store'])->name('cancel.store');
+        });
 
         Route::middleware('menu.perm:cashier.notifications')->group(function () {
             Route::get('notifications', [NotificationController::class, 'index'])->name('notifications');

@@ -24,7 +24,10 @@ class Transaction extends Model
     public const CANCELLED        = 'cancelled';
 
     protected $guarded = ['id'];
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = [
+        'is_active' => 'boolean',
+        'cancelled_at' => 'datetime',
+    ];
 
     public function user(): BelongsTo
     {
@@ -34,6 +37,16 @@ class Transaction extends Model
     public function cashier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cashier_id');
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     public function details(): HasMany
@@ -46,19 +59,16 @@ class Transaction extends Model
         return $this->hasMany(Payment::class);
     }
 
-    /** Latest payment (a transaction normally has one). */
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class)->latestOfMany();
     }
 
-    /** Delivery orders have a courier. Pickup and POS orders do not. */
     public function isDelivery(): bool
     {
         return ! empty($this->courier);
     }
 
-    /** onsite (POS), pickup, or delivery. */
     public function getFulfillmentAttribute(): string
     {
         if ($this->transaction_type === self::TYPE_POS) {
@@ -68,14 +78,12 @@ class Transaction extends Model
         return $this->isDelivery() ? 'delivery' : 'pickup';
     }
 
-    /** Online orders use the Midtrans order id. POS orders get a POS-000123 style number. */
     public function getOrderNumberAttribute(): string
     {
         return $this->payment?->midtrans_order_id
             ?? 'POS-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
     }
 
-    /** Paid / valid transactions (used for revenue). */
     public function scopeSuccessful(Builder $query): Builder
     {
         return $query->whereNotIn('status', [self::PENDING_PAYMENT, self::CANCELLED]);

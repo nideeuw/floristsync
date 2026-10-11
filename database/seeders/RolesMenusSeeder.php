@@ -121,11 +121,7 @@ class RolesMenusSeeder extends Seeder
             'pos_sale'          => [Role::CASHIER => $add],
             'pos_history'       => [Role::CASHIER => $view],
             'pos_notifications' => [Role::CASHIER => $edit],
-            'pos_cancel'        => [
-                Role::CASHIER     => $add,
-                Role::OWNER       => [0, 0, 0, 0, 1, 0],
-                Role::ADMIN_ORDER => [0, 0, 0, 0, 1, 0],
-            ],
+            'pos_cancel'        => [Role::CASHIER => $add],
 
             'profile'         => [Role::MEMBER => [1, 0, 1, 1, 0, 0]],
             'cart'            => [Role::MEMBER => $crud],

@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Concerns;
 
 use App\Models\Menu;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-class PlaceholderController extends Controller
+trait RendersPlaceholder
 {
-    public function __invoke(Request $request): View
+    protected function placeholder(Request $request): View
     {
         $menu = Menu::query()
             ->where('url_link', $request->route()?->getName())
