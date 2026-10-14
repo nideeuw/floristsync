@@ -18,15 +18,29 @@ class CartService
 
     public function count(): int
     {
-        return (int) array_sum($this->raw());
+        $cart = $this->raw();
+
+        if (! $cart) {
+            return 0;
+        }
+
+        return (int) Product::available()
+            ->whereIn('id', array_keys($cart))
+            ->get(['id', 'stock'])
+            ->sum(fn (Product $product) => min($cart[$product->id], $product->stock));
     }
 
     public function add(Product $product, int $qty = 1): void
     {
-        $newQty = min(($this->raw()[$product->id] ?? 0) + $qty, $product->stock);
+        $current = $this->raw()[$product->id] ?? 0;
+        $newQty = min($current + $qty, $product->stock);
 
         if ($newQty < 1) {
             throw new DomainException("{$product->product_name} is out of stock.");
+        }
+
+        if ($newQty <= $current) {
+            throw new DomainException("You already have all available stock of {$product->product_name} in your cart.");
         }
 
         $this->put($product->id, $newQty);
@@ -34,6 +48,10 @@ class CartService
 
     public function update(Product $product, int $qty): void
     {
+        if (! isset($this->raw()[$product->id])) {
+            return;
+        }
+
         $qty = min($qty, $product->stock);
 
         if ($qty < 1) {
@@ -55,7 +73,6 @@ class CartService
         session()->forget(self::KEY);
     }
 
-    /** Cart lines with fresh prices and stock from the database. */
     public function items(): Collection
     {
         $cart = $this->raw();
