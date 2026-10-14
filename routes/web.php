@@ -153,6 +153,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])
             ->middleware('menu.perm:admin.reports')->name('reports');
 
+        Route::get('transactions/{transaction}', [AdminTransactionController::class, 'show'])
+            ->middleware('menu.perm:admin.transactions')->name('transactions.show');
+
         Route::get('transactions', [AdminTransactionController::class, 'index'])
             ->middleware('menu.perm:admin.transactions')->name('transactions');
 
