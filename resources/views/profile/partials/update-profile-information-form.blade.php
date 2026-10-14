@@ -1,4 +1,68 @@
 <section>
+    <script>
+        function profileDestination(cfg) {
+            return {
+                id: cfg.id,
+                label: cfg.label,
+                results: [],
+                searching: false,
+                error: '',
+                timer: null,
+                requestId: 0,
+
+                name(place) {
+                    return place.label
+                        || [place.subdistrict_name, place.district_name, place.city_name, place.province_name].filter(Boolean).join(', ');
+                },
+
+                onInput() {
+                    this.id = null;
+                    this.error = '';
+                    clearTimeout(this.timer);
+
+                    if (this.label.trim().length < 3) {
+                        this.results = [];
+                        return;
+                    }
+
+                    this.timer = setTimeout(() => this.search(), 400);
+                },
+
+                async search() {
+                    const requestId = ++this.requestId;
+                    this.searching = true;
+
+                    try {
+                        const res = await fetch(cfg.url + '?q=' + encodeURIComponent(this.label.trim()), {
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        const body = await res.json().catch(() => ({}));
+
+                        if (requestId !== this.requestId) return;
+
+                        if (!res.ok) {
+                            throw new Error(body.message || 'Search failed. Please try again.');
+                        }
+
+                        this.results = body.data || [];
+                    } catch (e) {
+                        if (requestId !== this.requestId) return;
+                        this.results = [];
+                        this.error = e.message;
+                    } finally {
+                        if (requestId === this.requestId) this.searching = false;
+                    }
+                },
+
+                pick(place) {
+                    this.id = place.id;
+                    this.label = this.name(place);
+                    this.results = [];
+                },
+            };
+        }
+    </script>
+
     <header class="mb-5">
         <h2 class="text-lg font-bold">Account &amp; shipping address</h2>
         <p class="mt-1 text-sm text-gray-600">This information is used to fill your checkout automatically.</p>
@@ -22,8 +86,41 @@
             <x-ui.textarea name="address" label="Full address" :value="$user->address" />
 
             <div class="grid gap-4 md:grid-cols-2">
-                {{-- TODO(team): replace with RajaOngkir destination search; it must fill destination_id and destination_label together. --}}
-                <x-ui.field name="destination_label" label="City / district" :value="$user->destination_label" />
+                <div class="relative"
+                    x-data="profileDestination({{ Js::from([
+                        'id' => old('destination_id', $user->destination_id),
+                        'label' => old('destination_label', $user->destination_label ?? ''),
+                        'url' => url('/api/shipping/destinations'),
+                    ]) }})"
+                    @click.outside="results = []">
+                    <label class="mb-1 block text-sm font-medium">City / district</label>
+                    <input type="text" name="destination_label" class="input" autocomplete="off"
+                        placeholder="Type at least 3 letters, then pick a place"
+                        x-model="label" @input="onInput()">
+                    <input type="hidden" name="destination_id" :value="id">
+
+                    <p x-show="searching" x-cloak class="mt-1 text-xs text-gray-500">Searching...</p>
+                    <p x-show="error" x-cloak x-text="error" class="mt-1 text-sm text-red-600"></p>
+                    <p x-show="label.trim() && !id && !searching && !results.length" x-cloak class="mt-1 text-xs text-gray-500">
+                        Pick a place from the list to save it.
+                    </p>
+
+                    <ul x-show="results.length" x-cloak
+                        class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-blush bg-white shadow">
+                        <template x-for="place in results" :key="place.id">
+                            <li>
+                                <button type="button" @click="pick(place)"
+                                    class="block w-full px-4 py-2 text-left text-sm hover:bg-blush/40"
+                                    x-text="name(place)"></button>
+                            </li>
+                        </template>
+                    </ul>
+
+                    @if ($errors->has('destination_id') || $errors->has('destination_label'))
+                    <p class="mt-1 text-sm text-red-600">Please pick a place from the search results.</p>
+                    @endif
+                </div>
+
                 <x-ui.field name="postal_code" label="Postal code" :value="$user->postal_code" autocomplete="postal-code" />
             </div>
         </div>

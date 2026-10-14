@@ -29,8 +29,8 @@ class ProfileUpdateRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s]+$/'],
             'address' => ['nullable', 'string', 'max:500'],
             'postal_code' => ['nullable', 'string', 'max:10'],
-            'destination_id' => ['nullable', 'integer'],
-            'destination_label' => ['nullable', 'string', 'max:255'],
+            'destination_id' => ['nullable', 'integer', 'required_with:destination_label'],
+            'destination_label' => ['nullable', 'string', 'max:255', 'required_with:destination_id'],
         ];
     }
 }
