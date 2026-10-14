@@ -1,17 +1,22 @@
-<x-auth-card title="Forgot password" subtitle="We will email you a reset link" :home="route('home')">
-    <form method="POST" action="{{ route('password.email') }}" class="card space-y-4 p-6">
+<x-member-auth title="Forgot password" heading="Reset your password"
+    subtitle="We will email you a link to choose a new password." :home="route('home')">
+
+    <form method="POST" action="{{ route('password.email') }}" class="space-y-5">
         @csrf
 
-        <p class="text-sm opacity-70">
+        <p class="text-sm text-ink/60">
             Enter your email address and we will send you a link to choose a new password.
         </p>
 
-        <x-ui.field name="email" label="Email" type="email" required autofocus />
+        <x-member-field name="email" label="Email" type="email" icon="mail" required autofocus />
 
-        <button class="btn-primary w-full py-3">Email reset link</button>
+        <button class="btn-primary w-full py-3.5 text-base">Email reset link</button>
     </form>
 
-    <p class="mt-4 text-center text-sm">
-        <a href="{{ route('login') }}" class="font-semibold text-moss hover:text-ink">Back to login</a>
+    <p class="mt-8 text-center text-sm">
+        <a href="{{ route('login') }}" class="inline-flex items-center gap-1 font-semibold text-moss hover:text-ink">
+            <x-ui.icon name="arrow-left" class="h-4 w-4" />
+            Back to login
+        </a>
     </p>
-</x-auth-card>
+</x-member-auth>

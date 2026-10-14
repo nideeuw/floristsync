@@ -1,13 +1,17 @@
-<x-auth-card title="Reset password" subtitle="Choose a new password" :home="route('home')">
-    <form method="POST" action="{{ route('password.store') }}" class="card space-y-4 p-6">
+<x-member-auth title="Reset password" heading="Choose a new password"
+    subtitle="Pick a strong password you have not used before." :home="route('home')">
+
+    <form method="POST" action="{{ route('password.store') }}" class="space-y-5">
         @csrf
 
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
 
-        <x-ui.field name="email" label="Email" type="email" :value="$request->email" autocomplete="username" required autofocus />
-        <x-ui.field name="password" label="New password" type="password" autocomplete="new-password" required />
-        <x-ui.field name="password_confirmation" label="Confirm password" type="password" autocomplete="new-password" required />
+        <x-member-field name="email" label="Email" type="email" icon="mail" :value="$request->email"
+            autocomplete="username" required autofocus />
+        <x-member-field name="password" label="New password" type="password" icon="lock" autocomplete="new-password" required />
+        <x-member-field name="password_confirmation" label="Confirm password" type="password" icon="lock-keyhole"
+            autocomplete="new-password" required />
 
-        <button class="btn-primary w-full py-3">Reset password</button>
+        <button class="btn-primary w-full py-3.5 text-base">Reset password</button>
     </form>
-</x-auth-card>
+</x-member-auth>

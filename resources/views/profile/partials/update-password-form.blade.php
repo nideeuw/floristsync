@@ -1,7 +1,7 @@
 <section>
-    <header class="mb-5">
-        <h2 class="text-lg font-bold">Password</h2>
-        <p class="mt-1 text-sm text-gray-600">Use a long, random password to keep your account secure.</p>
+    <header class="mb-6">
+        <h2 class="font-display text-3xl font-semibold">Password</h2>
+        <p class="mt-1 text-sm text-ink/60">Use a long, random password to keep your account secure.</p>
     </header>
 
     <form method="POST" action="{{ route('password.update') }}" class="space-y-4">
@@ -16,11 +16,13 @@
             autocomplete="new-password" />
 
         <div class="flex items-center gap-4">
-            <button class="btn-primary">Update password</button>
+            <button class="btn-primary px-7 py-3">Update password</button>
 
             @if (session('status') === 'password-updated')
                 <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2500)"
-                    class="text-sm font-medium text-moss">Saved.</p>
+                    class="inline-flex items-center gap-1 text-sm font-medium text-moss">
+                    <x-ui.icon name="check" class="h-4 w-4" /> Saved.
+                </p>
             @endif
         </div>
     </form>

@@ -63,9 +63,9 @@
         }
     </script>
 
-    <header class="mb-5">
-        <h2 class="text-lg font-bold">Account &amp; shipping address</h2>
-        <p class="mt-1 text-sm text-gray-600">This information is used to fill your checkout automatically.</p>
+    <header class="mb-6">
+        <h2 class="font-display text-3xl font-semibold">Account &amp; shipping address</h2>
+        <p class="mt-1 text-sm text-ink/60">This information is used to fill your checkout automatically.</p>
     </header>
 
     <form method="POST" action="{{ route('profile.update') }}" class="space-y-6">
@@ -80,8 +80,11 @@
             </div>
         </div>
 
-        <div class="space-y-4 border-t border-blush pt-6">
-            <h3 class="font-semibold">Shipping address</h3>
+        <div class="space-y-4 border-t border-blush/80 pt-6">
+            <h3 class="flex items-center gap-2 font-semibold">
+                <x-ui.icon name="map-pin" class="h-5 w-5 text-moss" />
+                Shipping address
+            </h3>
 
             <x-ui.textarea name="address" label="Full address" :value="$user->address" />
 
@@ -99,18 +102,18 @@
                         x-model="label" @input="onInput()">
                     <input type="hidden" name="destination_id" :value="id">
 
-                    <p x-show="searching" x-cloak class="mt-1 text-xs text-gray-500">Searching...</p>
+                    <p x-show="searching" x-cloak class="mt-1 text-xs text-ink/50">Searching...</p>
                     <p x-show="error" x-cloak x-text="error" class="mt-1 text-sm text-red-600"></p>
-                    <p x-show="label.trim() && !id && !searching && !results.length" x-cloak class="mt-1 text-xs text-gray-500">
+                    <p x-show="label.trim() && !id && !searching && !results.length" x-cloak class="mt-1 text-xs text-ink/50">
                         Pick a place from the list to save it.
                     </p>
 
                     <ul x-show="results.length" x-cloak
-                        class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-blush bg-white shadow">
+                        class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-2xl border border-blush bg-white shadow-xl">
                         <template x-for="place in results" :key="place.id">
                             <li>
                                 <button type="button" @click="pick(place)"
-                                    class="block w-full px-4 py-2 text-left text-sm hover:bg-blush/40"
+                                    class="block w-full px-4 py-2.5 text-left text-sm hover:bg-blush/40"
                                     x-text="name(place)"></button>
                             </li>
                         </template>
@@ -126,11 +129,13 @@
         </div>
 
         <div class="flex items-center gap-4">
-            <button class="btn-primary">Save changes</button>
+            <button class="btn-primary px-7 py-3">Save changes</button>
 
             @if (session('status') === 'profile-updated')
                 <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2500)"
-                    class="text-sm font-medium text-moss">Saved.</p>
+                    class="inline-flex items-center gap-1 text-sm font-medium text-moss">
+                    <x-ui.icon name="check" class="h-4 w-4" /> Saved.
+                </p>
             @endif
         </div>
     </form>

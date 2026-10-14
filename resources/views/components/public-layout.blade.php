@@ -24,7 +24,7 @@ $navLinks = [
             class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 transition-all duration-300">
 
             <div class="flex flex-1 items-center">
-                <x-ui.brand :href="route('home')" class="text-moss" />
+                <x-brand-mark :href="route('home')" />
             </div>
 
             <nav class="hidden items-center gap-1 text-sm font-medium md:flex" aria-label="Main navigation">
