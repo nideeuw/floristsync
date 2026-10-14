@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Concerns\RendersPlaceholder;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Services\OrderMilestoneService;
 use Illuminate\View\View;
 
 class OrderMilestoneController extends Controller
 {
-    use RendersPlaceholder;
+    public function __construct(private OrderMilestoneService $service) {}
 
-    public function index(Request $request): View
+    public function index(): View
     {
-        return $this->placeholder($request);
+        return view('admin.orders.milestone', [
+            'columns' => $this->service->board(),
+        ]);
     }
 }
