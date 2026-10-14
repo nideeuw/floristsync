@@ -1,42 +1,59 @@
 <x-public-layout title="Cart">
-    <div class="mx-auto max-w-7xl px-4 py-10">
-        <h1 class="mb-6 text-3xl font-bold">Your Cart</h1>
+    <div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
+        <x-page-header eyebrow="Your selection" title="Your cart" />
 
         @if ($items->isEmpty())
         <x-ui.empty-state icon="shopping-cart" title="Your cart is empty"
-            description="Add some flowers and they will show up here.">
-            <a href="{{ route('catalog') }}" class="btn-primary">Browse Flowers</a>
+            description="Add some flowers and they will show up here." class="mt-10">
+            <a href="{{ route('catalog') }}" class="btn-primary">Browse flowers</a>
         </x-ui.empty-state>
         @else
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="mt-10 grid gap-8 lg:grid-cols-3">
             {{-- Items --}}
             <div class="space-y-4 lg:col-span-2">
                 @foreach ($items as $item)
-                <div class="card flex items-center gap-4 p-4">
-                    <x-product-image :product="$item->product" class="h-24 w-24 shrink-0 rounded-xl" />
+                <div class="flex gap-4 rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-blush/60 sm:gap-5 sm:p-5">
+                    <a href="{{ route('products.show', $item->product) }}" class="shrink-0">
+                        <x-product-image :product="$item->product" class="h-24 w-24 rounded-2xl sm:h-32 sm:w-32" />
+                    </a>
 
-                    <div class="min-w-0 flex-1">
-                        <a href="{{ route('products.show', $item->product) }}"
-                            class="font-semibold hover:text-moss">{{ $item->product->product_name }}</a>
-                        <div class="text-sm text-gray-600">{{ rupiah($item->product->price) }}</div>
+                    <div class="flex min-w-0 flex-1 flex-col">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                @if ($item->product->category)
+                                <span class="text-[11px] font-semibold uppercase tracking-widest text-moss">
+                                    {{ $item->product->category->category_name }}
+                                </span>
+                                @endif
+                                <a href="{{ route('products.show', $item->product) }}"
+                                    class="block font-display text-xl font-semibold leading-snug transition hover:text-moss sm:text-2xl">
+                                    {{ $item->product->product_name }}
+                                </a>
+                                <div class="text-sm text-ink/60">{{ rupiah($item->product->price) }} each</div>
+                            </div>
+                            <div class="shrink-0 text-right text-lg font-bold">{{ rupiah($item->subtotal) }}</div>
+                        </div>
 
-                        <form method="POST" action="{{ route('cart.update', $item->product) }}"
-                            class="mt-2 flex items-center gap-2">
-                            @csrf
-                            @method('PATCH')
-                            <input type="number" name="qty" value="{{ $item->qty }}" min="0"
-                                max="{{ $item->product->stock }}" class="input w-20">
-                            <button class="btn-outline px-3 py-1.5 text-xs">Update</button>
-                        </form>
-                    </div>
+                        <div class="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
+                            <form method="POST" action="{{ route('cart.update', $item->product) }}"
+                                class="flex items-center gap-2">
+                                @csrf
+                                @method('PATCH')
+                                <input type="number" name="qty" value="{{ $item->qty }}" min="0"
+                                    max="{{ $item->product->stock }}" class="input w-20 rounded-full text-center"
+                                    aria-label="Quantity">
+                                <button class="btn-outline px-4 py-2 text-xs">Update</button>
+                            </form>
 
-                    <div class="text-right">
-                        <div class="font-bold">{{ rupiah($item->subtotal) }}</div>
-                        <form method="POST" action="{{ route('cart.remove', $item->product) }}" class="mt-2">
-                            @csrf
-                            @method('DELETE')
-                            <button class="text-xs text-red-600 hover:underline">Remove</button>
-                        </form>
+                            <form method="POST" action="{{ route('cart.remove', $item->product) }}">
+                                @csrf
+                                @method('DELETE')
+                                <button class="inline-flex items-center gap-1 text-xs font-semibold text-red-600 transition hover:underline">
+                                    <x-ui.icon name="trash-2" class="h-4 w-4" />
+                                    Remove
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
                 @endforeach
@@ -44,26 +61,35 @@
 
             {{-- Summary --}}
             <div>
-                <div class="card p-6">
-                    <h2 class="text-lg font-bold">Order Summary</h2>
-                    <div class="mt-4 flex justify-between text-sm">
-                        <span>Subtotal</span>
+                <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 lg:sticky lg:top-24">
+                    <h2 class="font-display text-3xl font-semibold">Order summary</h2>
+
+                    <div class="mt-5 flex justify-between text-sm">
+                        <span class="text-ink/70">Subtotal</span>
                         <span class="font-semibold">{{ rupiah($subtotal) }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-500">Shipping is calculated at checkout.</p>
+                    <p class="mt-1 text-xs text-ink/50">Shipping is calculated at checkout.</p>
+
+                    <div class="mt-5 flex items-end justify-between border-t border-blush/80 pt-5">
+                        <span class="font-semibold">Total</span>
+                        <span class="text-2xl font-bold text-moss">{{ rupiah($subtotal) }}</span>
+                    </div>
 
                     @auth
-                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full">Proceed to Checkout</a>
+                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full py-3.5 text-base">
+                        Proceed to checkout
+                        <x-ui.icon name="arrow-right" class="h-4 w-4" />
+                    </a>
                     @else
-                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full">Log in to Checkout</a>
-                    <p class="mt-2 text-center text-xs text-gray-500">
+                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full py-3.5 text-base">Log in to checkout</a>
+                    <p class="mt-3 text-center text-xs text-ink/60">
                         New here?
                         <a href="{{ route('register') }}" class="font-semibold text-moss hover:underline">Create an account</a>
                         to place your order. Your cart will be kept.
                     </p>
                     @endauth
 
-                    <a href="{{ route('catalog') }}" class="btn-outline mt-2 w-full">Continue Shopping</a>
+                    <a href="{{ route('catalog') }}" class="btn-outline mt-3 w-full">Continue shopping</a>
                 </div>
             </div>
         </div>
