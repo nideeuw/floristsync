@@ -21,6 +21,8 @@ class SettingRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:500'],
             'shipping_origin_id' => ['nullable', 'integer', 'min:1'],
             'shipping_origin_label' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
         ];
 
         foreach (SettingService::DAYS as $day) {
@@ -72,6 +74,8 @@ class SettingRequest extends FormRequest
             'address' => $data['address'] ?? null,
             'shipping_origin_id' => $data['shipping_origin_id'] ?? null,
             'shipping_origin_label' => $data['shipping_origin_label'] ?? null,
+            'store_latitude' => $data['latitude'] ?? null,
+            'store_longitude' => $data['longitude'] ?? null,
             'opening_hours' => $hours,
         ];
     }

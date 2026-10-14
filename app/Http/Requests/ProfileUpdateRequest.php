@@ -31,6 +31,8 @@ class ProfileUpdateRequest extends FormRequest
             'postal_code' => ['nullable', 'string', 'max:10'],
             'destination_id' => ['nullable', 'integer', 'required_with:destination_label'],
             'destination_label' => ['nullable', 'string', 'max:255', 'required_with:destination_id'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
         ];
     }
 }

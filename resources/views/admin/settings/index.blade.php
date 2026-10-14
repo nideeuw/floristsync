@@ -14,8 +14,22 @@
                 <x-ui.field name="whatsapp_number" label="WhatsApp number" type="tel" :value="$form['whatsapp_number']"
                     hint="Example: 081234567890 (saved as 6281234567890). Used in the footer and the chat button." required />
             </div>
+        </section>
 
-            <x-ui.textarea name="address" label="Address" :value="$form['address']" rows="3" />
+        {{-- Store location --}}
+        <section class="card space-y-4 p-6">
+            <div>
+                <h2 class="text-base font-semibold">Store location</h2>
+                <p class="mt-1 text-xs text-gray-500">Search for your store, use your current location, or drop the pin on the map. The address is filled in for you and can be edited.</p>
+            </div>
+
+            <x-ui.location-picker
+                :latitude="$form['store_latitude']"
+                :longitude="$form['store_longitude']"
+                :address="$form['address']"
+                address-label="Address"
+                :with-postal="false"
+                pin-hint="Mark where your store is on the map." />
         </section>
 
         {{-- Opening hours --}}

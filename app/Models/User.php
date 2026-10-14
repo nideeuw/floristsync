@@ -16,6 +16,7 @@ use Illuminate\Notifications\Notifiable;
 #[Fillable([
     'role_id', 'name', 'email', 'password', 'phone',
     'address', 'postal_code', 'destination_id', 'destination_label',
+    'latitude', 'longitude',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable

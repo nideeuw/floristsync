@@ -40,6 +40,10 @@ return [
         'client_key'    => env('MIDTRANS_CLIENT_KEY'),
         'is_production' => env('MIDTRANS_IS_PRODUCTION', false),
     ],
+    'nominatim' => [
+        'base_url'   => env('NOMINATIM_BASE_URL', 'https://nominatim.openstreetmap.org'),
+        'user_agent' => env('NOMINATIM_USER_AGENT', 'FloristSync/1.0'),
+    ],
     'rajaongkir' => [
         'api_key'   => env('RAJAONGKIR_API_KEY'),
         'base_url'  => env('RAJAONGKIR_BASE_URL'),

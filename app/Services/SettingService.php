@@ -62,6 +62,8 @@ class SettingService
             'address' => $this->get('address'),
             'shipping_origin_id' => $this->get('shipping_origin_id', config('services.rajaongkir.origin_id')),
             'shipping_origin_label' => $this->get('shipping_origin_label'),
+            'store_latitude' => $this->get('store_latitude'),
+            'store_longitude' => $this->get('store_longitude'),
             'hours' => $this->openingHours(),
         ];
     }

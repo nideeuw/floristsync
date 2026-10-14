@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MidtransController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
@@ -31,6 +32,12 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('track/{orderNumber}', [OrderController::class, 'track']);
         Route::get('shipping/destinations', [ShippingController::class, 'destinations']);
         Route::post('shipping/cost', [ShippingController::class, 'cost']);
+    });
+
+    // Location search (OpenStreetMap): members and owner
+    Route::middleware(['role:member,owner', 'throttle:60,1,location'])->prefix('location')->group(function () {
+        Route::get('search', [LocationController::class, 'search']);
+        Route::get('reverse', [LocationController::class, 'reverse']);
     });
 
     // POS cashier
