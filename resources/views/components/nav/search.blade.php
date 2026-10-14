@@ -16,7 +16,7 @@
     <x-ui.icon name="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/50" />
 
     <input x-ref="q" x-model="q" type="search" autocomplete="off" placeholder="Search menu (Ctrl+K)"
-        class="input pl-9"
+        class="input rounded-full border-transparent bg-cream/40 pl-9 focus:bg-white"
         x-on:focus="focus = true"
         x-on:keydown.enter.prevent="if (results[0]) window.location = results[0].href"
         x-on:keydown.escape="focus = false; $refs.q.blur()">

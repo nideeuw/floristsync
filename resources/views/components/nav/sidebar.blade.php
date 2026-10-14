@@ -3,14 +3,13 @@
 <nav {{ $attributes->merge(['class' => 'space-y-1']) }} aria-label="Main navigation">
     @foreach ($menus as $menu)
     @if ($menu->menu_behavior === 'group')
-    <div class="pt-3">
-        <div :class="collapsed && 'md:hidden'"
-            class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-cream/50">
+    <div class="pt-4 first:pt-0">
+        <div class="fs-hide-collapsed px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
             {{ $menu->menu_name }}
         </div>
-        <div x-show="collapsed" x-cloak class="mx-3 mb-2 hidden border-t border-white/10 md:block"></div>
+        <div class="fs-show-collapsed mx-3 mb-2 border-t border-blush"></div>
 
-        <div class="space-y-1">
+        <div class="space-y-0.5">
             @foreach ($menu->children as $child)
             <x-nav.side-link :menu="$child" />
             @endforeach

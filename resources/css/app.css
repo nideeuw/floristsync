@@ -27,3 +27,42 @@
         @apply rounded-2xl border border-blush bg-white shadow-sm;
     }
 }
+
+
+.fs-show-collapsed {
+    display: none;
+}
+
+.fs-shell-aside {
+    transition: none;
+}
+
+.fs-ready .fs-shell-aside {
+    transition: transform 220ms ease-out, width 220ms ease-out;
+}
+
+@media (min-width: 1024px) {
+    .fs-collapsed .fs-shell-aside {
+        width: 4.5rem;
+    }
+
+    .fs-collapsed .fs-hide-collapsed {
+        display: none;
+    }
+
+    .fs-collapsed .fs-show-collapsed {
+        display: block;
+    }
+
+    .fs-collapsed .fs-center-collapsed {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fs-ready .fs-shell-aside {
+        transition: none;
+    }
+}

@@ -52,57 +52,66 @@
 <x-layouts.base :title="$title" :suffix="$suffix" :class="$fixed ? 'h-screen overflow-hidden' : 'min-h-screen'"
     x-data="{
         mobileOpen: false,
-        collapsed: false,
+        desktop: window.matchMedia('(min-width: 1024px)').matches,
+        collapsed: document.documentElement.classList.contains('fs-collapsed'),
         init() {
-            try { this.collapsed = localStorage.getItem('fs.sidebar') === '1'; } catch (e) {}
-            this.$watch('collapsed', (v) => { try { localStorage.setItem('fs.sidebar', v ? '1' : '0'); } catch (e) {} });
+            const mq = window.matchMedia('(min-width: 1024px)');
+            mq.addEventListener('change', (e) => {
+                this.desktop = e.matches;
+                if (e.matches) { this.mobileOpen = false; }
+            });
+            this.$watch('collapsed', (v) => {
+                document.documentElement.classList.toggle('fs-collapsed', v);
+                try { localStorage.setItem('fs.sidebar', v ? '1' : '0'); } catch (e) {}
+            });
+            this.$watch('mobileOpen', (v) => document.documentElement.classList.toggle('overflow-hidden', v));
+            requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.add('fs-ready')));
         },
         toggle() {
-            if (window.matchMedia('(min-width: 768px)').matches) { this.collapsed = !this.collapsed; }
-            else { this.mobileOpen = !this.mobileOpen; }
+            if (this.desktop) { this.collapsed = !this.collapsed; } else { this.mobileOpen = !this.mobileOpen; }
         }
     }"
     x-on:keydown.escape.window="mobileOpen = false">
 
+    {{-- Restore the desktop sidebar state before the first paint (no flash) --}}
+    <script>
+        try { if (localStorage.getItem('fs.sidebar') === '1') { document.documentElement.classList.add('fs-collapsed'); } } catch (e) {}
+    </script>
+
     {{-- Mobile overlay --}}
     <div x-show="mobileOpen" x-cloak x-transition.opacity x-on:click="mobileOpen = false"
-        class="fixed inset-0 z-40 bg-ink/50 md:hidden"></div>
+        class="fixed inset-0 z-40 bg-ink/40 lg:hidden" aria-hidden="true"></div>
 
-    <div @class(['flex', 'h-screen overflow-hidden' => $fixed, 'min-h-screen' => ! $fixed])>
+    <div @class(['flex bg-white', 'h-screen overflow-hidden' => $fixed, 'min-h-screen' => ! $fixed])>
 
         {{-- Sidebar --}}
-        <aside :class="[mobileOpen && '!translate-x-0', collapsed ? 'md:w-[4.5rem]' : 'md:w-64']"
-            class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col bg-ink text-cream shadow-xl transition-[transform,width] duration-200 md:sticky md:top-3 md:m-3 md:h-[calc(100vh-1.5rem)] md:shrink-0 md:translate-x-0 md:rounded-2xl">
+        <aside id="app-sidebar" aria-label="Sidebar"
+            :class="mobileOpen && '!translate-x-0'"
+            x-effect="$el.toggleAttribute('inert', !desktop && !mobileOpen)"
+            x-on:click="if ($event.target.closest('a')) { mobileOpen = false }"
+            class="fs-shell-aside fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col overflow-hidden border-r border-blush bg-white shadow-xl lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none">
 
-            <a href="{{ $home }}" class="flex h-14 shrink-0 items-center gap-3 px-4" title="{{ $brandName }}">
-                <img src="{{ asset('images/logo.png') }}" alt=""
-                    class="h-9 w-9 shrink-0 rounded-full bg-cream object-contain p-1">
-                <span class="truncate text-lg font-bold" :class="collapsed && 'md:hidden'">{{ $brandName }}</span>
-            </a>
+            <div class="fs-center-collapsed flex h-14 shrink-0 items-center justify-between border-b border-blush/70 px-5">
+                <x-ui.brand :href="$home" :name="$brandName" text-class="fs-hide-collapsed"
+                    class="min-w-0 text-moss" :title="$brandName" />
 
-            <x-nav.sidebar :menus="$menus" class="flex-1 overflow-y-auto px-3 py-2" />
-
-            <div class="shrink-0 border-t border-white/10 p-3">
-                <button type="button" x-on:click="mobileOpen = false"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm text-cream/80 hover:bg-white/10 md:hidden">
-                    <x-ui.icon name="x" class="h-4 w-4" /> Close menu
-                </button>
-                <button type="button" x-on:click="collapsed = !collapsed"
-                    class="hidden w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-cream/80 hover:bg-white/10 md:flex"
-                    :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
-                    <x-ui.icon name="panel-left-close" class="h-4 w-4 shrink-0" x-show="!collapsed" />
-                    <x-ui.icon name="panel-left-open" class="h-4 w-4 shrink-0" x-show="collapsed" x-cloak />
-                    <span :class="collapsed && 'md:hidden'">Collapse</span>
+                <button type="button" x-on:click="mobileOpen = false" aria-label="Close menu"
+                    class="rounded-xl p-2 text-ink/60 transition-colors hover:bg-cream/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage lg:hidden">
+                    <x-ui.icon name="x" class="h-5 w-5" />
                 </button>
             </div>
+
+            <x-nav.sidebar :menus="$menus" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" />
         </aside>
 
         {{-- Content column --}}
-        <div @class(['flex min-w-0 flex-1 flex-col', 'h-screen' => $fixed])>
+        <div @class(['flex min-w-0 flex-1 flex-col bg-cream/30', 'h-screen' => $fixed])>
 
             {{-- Header --}}
-            <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-blush bg-white px-4 sm:px-6">
-                <button type="button" x-on:click="toggle()" class="rounded-full p-2 hover:bg-cream" aria-label="Toggle sidebar">
+            <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-blush/70 bg-white px-4 sm:px-6">
+                <button type="button" x-on:click="toggle()" aria-controls="app-sidebar" aria-label="Toggle sidebar"
+                    :aria-expanded="(desktop ? !collapsed : mobileOpen) ? 'true' : 'false'"
+                    class="rounded-xl p-2 text-ink/70 transition-colors hover:bg-cream/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
                     <x-ui.icon name="menu" class="h-5 w-5" />
                 </button>
 
@@ -125,9 +134,10 @@
                         <x-nav.bell :href="$bell" :user="$user" />
                     @endif
 
-                    <div class="relative" x-data="{ open: false }" x-on:click.outside="open = false">
-                        <button type="button" x-on:click="open = !open" :aria-expanded="open"
-                            class="flex items-center gap-2 rounded-full p-1 sm:pr-3 hover:bg-cream">
+                    <div class="relative" x-data="{ open: false }" x-on:click.outside="open = false"
+                        x-on:keydown.escape="open = false">
+                        <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-haspopup="menu"
+                            class="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-cream/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage sm:pr-3">
                             <span class="flex h-8 w-8 items-center justify-center rounded-full bg-moss text-sm font-bold text-white">
                                 {{ mb_strtoupper(mb_substr($user->name, 0, 1)) }}
                             </span>
@@ -135,13 +145,17 @@
                                 <span class="block max-w-32 truncate text-sm font-semibold">{{ $user->name }}</span>
                                 <span class="block text-xs text-ink/60">{{ str((string) $user->role?->role_name)->headline() }}</span>
                             </span>
-                            <x-ui.icon name="chevron-down" class="hidden h-4 w-4 sm:block" />
+                            <x-ui.icon name="chevron-down" class="hidden h-4 w-4 text-ink/50 sm:block" />
                         </button>
 
-                        <div x-show="open" x-cloak
-                            class="absolute right-0 mt-2 w-56 rounded-2xl border border-blush bg-white p-2 shadow-lg">
-                            <div class="break-all px-3 py-2 text-xs text-ink/60">{{ $user->email }}</div>
-                            <x-nav.logout :action="$logout" class="w-full gap-3 rounded-xl px-3 py-2 text-sm text-ink hover:bg-blush" />
+                        <div x-show="open" x-cloak x-transition.origin.top.right
+                            class="absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-blush bg-white p-2 shadow-lg">
+                            <div class="px-3 py-2">
+                                <div class="truncate text-sm font-semibold">{{ $user->name }}</div>
+                                <div class="break-all text-xs text-ink/60">{{ $user->email }}</div>
+                            </div>
+                            <div class="my-1 border-t border-blush/70"></div>
+                            <x-nav.logout :action="$logout" class="w-full gap-3 rounded-xl px-3 py-2 text-sm text-ink transition-colors hover:bg-blush/50" />
                         </div>
                     </div>
                 </div>
@@ -153,7 +167,7 @@
                     {{ $slot }}
                 </main>
             @else
-                <main class="min-w-0 flex-1 p-4 sm:p-6">
+                <main class="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
                     <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
                         <div class="min-w-0">
                             <nav aria-label="Breadcrumb" class="mb-1 flex flex-wrap items-center gap-1 text-xs text-ink/60">
