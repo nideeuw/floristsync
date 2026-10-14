@@ -6,6 +6,11 @@
         @endforeach
     </x-slot:actions>
 
+    <div class="mb-4 flex flex-wrap justify-end gap-2">
+        <a href="{{ route('admin.reports.export.pdf', ['days' => $days]) }}" class="btn-outline">Export PDF</a>
+        <a href="{{ route('admin.reports.export.excel', ['days' => $days]) }}" class="btn-outline">Export Excel</a>
+    </div>
+
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-stat-card :label="'Revenue (last ' . $days . ' days)'" :value="rupiah($summary['revenue'])" />
         <x-stat-card label="Orders" :value="$summary['orders']" />

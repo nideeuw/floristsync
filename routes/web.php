@@ -153,6 +153,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])
             ->middleware('menu.perm:admin.reports')->name('reports');
 
+        Route::get('reports/export/pdf', [ReportController::class, 'exportPdf'])
+            ->middleware('menu.perm:admin.reports')->name('reports.export.pdf');
+        Route::get('reports/export/excel', [ReportController::class, 'exportExcel'])
+            ->middleware('menu.perm:admin.reports')->name('reports.export.excel');
+
         Route::get('transactions/{transaction}', [AdminTransactionController::class, 'show'])
             ->middleware('menu.perm:admin.transactions')->name('transactions.show');
 
