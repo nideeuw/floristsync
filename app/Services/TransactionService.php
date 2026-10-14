@@ -8,11 +8,16 @@ use App\Models\Role;
 use App\Models\Transaction;
 use DomainException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
 class TransactionService
 {
+    private const FAILED_STATUSES = ['deny', 'cancel', 'expire', 'failure'];
+
+    private const AFTER_PAYMENT_STATUSES = ['refund', 'partial_refund', 'chargeback', 'partial_chargeback'];
+
     public function __construct(
         private InventoryService $inventory,
         private MidtransService $midtrans,
@@ -108,40 +113,26 @@ class TransactionService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $transaction = $payment->transaction;
+            $this->assertAmountMatches($payment, $notification);
+
+            $transaction = Transaction::whereKey($payment->transaction_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             $status = $notification['transaction_status'];
+
+            if ($payment->payment_date !== null && ! in_array($status, self::AFTER_PAYMENT_STATUSES, true)) {
+                return;
+            }
 
             $payment->update([
                 'payment_status' => $status,
-                'payment_method' => $notification['payment_type'],
+                'payment_method' => $notification['payment_type'] ?? $payment->payment_method,
             ]);
 
-            $paid = $status === 'settlement'
-                || ($status === 'capture' && $notification['fraud_status'] === 'accept');
-
-            if ($paid && $transaction->transaction_type === Transaction::TYPE_POS && $transaction->status === Transaction::PENDING_PAYMENT) {
-                $payment->update(['payment_date' => now()]);
-                $transaction->update(['status' => Transaction::COMPLETED]);
-            } elseif ($paid && $transaction->status === Transaction::PENDING_PAYMENT) {
-                $payment->update(['payment_date' => now()]);
-                $transaction->update(['status' => Transaction::PROCESSING]);
-
-                $this->notifications->notifyRoles(
-                    [Role::ADMIN_ORDER],
-                    'New paid order',
-                    "Order #{$transaction->id} has been paid and is ready to be processed.",
-                    'new_order'
-                );
-
-                if ($transaction->user_id) {
-                    $this->notifications->notifyUser(
-                        $transaction->user_id,
-                        'Payment received',
-                        "Your order #{$transaction->id} is being processed.",
-                        'order_status'
-                    );
-                }
-            } elseif (in_array($status, ['deny', 'cancel', 'expire', 'failure'], true)) {
+            if ($this->isPaid($notification)) {
+                $this->markPaid($payment, $transaction);
+            } elseif (in_array($status, self::FAILED_STATUSES, true)) {
                 $this->cancel($transaction);
             }
         });
@@ -149,19 +140,38 @@ class TransactionService
 
     public function cancel(Transaction $transaction): void
     {
-        DB::transaction(function () use ($transaction) {
-            $transaction->refresh();
+        $remoteOrderId = DB::transaction(function () use ($transaction) {
+            $locked = Transaction::whereKey($transaction->id)->lockForUpdate()->first();
 
-            if ($transaction->status !== Transaction::PENDING_PAYMENT) {
-                return;
+            if (! $locked || $locked->status !== Transaction::PENDING_PAYMENT) {
+                return null;
             }
 
-            foreach ($transaction->details()->with('product')->get() as $detail) {
-                $this->inventory->add($detail->product, $detail->qty, 'cancel', "Order #{$transaction->id} cancelled");
+            foreach ($locked->details()->with('product')->get() as $detail) {
+                $this->inventory->add($detail->product, $detail->qty, 'cancel', "Order #{$locked->id} cancelled");
             }
 
-            $transaction->update(['status' => Transaction::CANCELLED]);
+            $locked->update(['status' => Transaction::CANCELLED]);
+
+            $payment = $locked->payment;
+            $remoteOrderId = null;
+
+            if ($payment && $payment->payment_status === 'pending') {
+                if ($payment->snap_token) {
+                    $remoteOrderId = $payment->midtrans_order_id;
+                }
+
+                $payment->update(['payment_status' => 'cancel']);
+            }
+
+            return $remoteOrderId;
         });
+
+        $transaction->refresh();
+
+        if ($remoteOrderId) {
+            $this->midtrans->cancelInvoice($remoteOrderId);
+        }
     }
 
     public function inputTrackingNumber(Transaction $transaction, string $trackingNumber): Transaction
@@ -189,6 +199,64 @@ class TransactionService
         $this->notifyStatus($transaction, "Your order #{$transaction->id} is now: {$label}.");
 
         return $transaction;
+    }
+
+    private function isPaid(array $notification): bool
+    {
+        $status = $notification['transaction_status'];
+
+        return $status === 'settlement'
+            || ($status === 'capture' && ($notification['fraud_status'] ?? null) === 'accept');
+    }
+
+    private function markPaid(Payment $payment, Transaction $transaction): void
+    {
+        if ($transaction->status === Transaction::CANCELLED) {
+            Log::warning("Payment {$payment->midtrans_order_id} was paid after order #{$transaction->id} was cancelled. Manual refund needed.");
+
+            return;
+        }
+
+        if ($transaction->status !== Transaction::PENDING_PAYMENT) {
+            return;
+        }
+
+        $payment->update(['payment_date' => now()]);
+
+        if ($transaction->transaction_type === Transaction::TYPE_POS) {
+            $transaction->update(['status' => Transaction::COMPLETED]);
+
+            return;
+        }
+
+        $transaction->update(['status' => Transaction::PROCESSING]);
+
+        $this->notifications->notifyRoles(
+            [Role::ADMIN_ORDER],
+            'New paid order',
+            "Order #{$transaction->id} has been paid and is ready to be processed.",
+            'new_order'
+        );
+
+        if ($transaction->user_id) {
+            $this->notifications->notifyUser(
+                $transaction->user_id,
+                'Payment received',
+                "Your order #{$transaction->id} is being processed.",
+                'order_status'
+            );
+        }
+    }
+
+    private function assertAmountMatches(Payment $payment, array $notification): void
+    {
+        if (! isset($notification['gross_amount'])) {
+            return;
+        }
+
+        if ((int) round((float) $notification['gross_amount']) !== (int) round((float) $payment->amount)) {
+            throw new DomainException("Amount mismatch for order {$payment->midtrans_order_id}.");
+        }
     }
 
     private function notifyStatus(Transaction $transaction, string $message): void

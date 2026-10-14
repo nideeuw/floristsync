@@ -3,10 +3,14 @@
 namespace App\Services;
 
 use App\Models\Transaction;
+use DomainException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Midtrans\Config;
 use Midtrans\Notification;
 use Midtrans\Snap;
+use Midtrans\Transaction as MidtransApi;
+use Throwable;
 
 class MidtransService
 {
@@ -58,6 +62,12 @@ class MidtransService
 
     public function readNotification(): array
     {
+        $payload = json_decode(request()->getContent(), true);
+
+        if (! is_array($payload) || ! $this->hasValidSignature($payload)) {
+            throw new DomainException('Invalid Midtrans notification signature.');
+        }
+
         $raw = (array) (new Notification())->getResponse();
 
         return [
@@ -65,6 +75,28 @@ class MidtransService
             'transaction_status' => $raw['transaction_status'],
             'fraud_status' => $raw['fraud_status'] ?? null,
             'payment_type' => $raw['payment_type'] ?? null,
+            'gross_amount' => $raw['gross_amount'] ?? null,
         ];
+    }
+
+    public function cancelInvoice(string $orderId): void
+    {
+        try {
+            MidtransApi::cancel($orderId);
+        } catch (Throwable $e) {
+            Log::warning("Midtrans cancel skipped for {$orderId}: {$e->getMessage()}");
+        }
+    }
+
+    private function hasValidSignature(array $payload): bool
+    {
+        $expected = hash('sha512',
+            ($payload['order_id'] ?? '')
+            .($payload['status_code'] ?? '')
+            .($payload['gross_amount'] ?? '')
+            .config('services.midtrans.server_key')
+        );
+
+        return hash_equals($expected, (string) ($payload['signature_key'] ?? ''));
     }
 }
