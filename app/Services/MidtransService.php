@@ -88,6 +88,67 @@ class MidtransService
         }
     }
 
+    public function getStatus(string $orderId): ?array
+    {
+        try {
+            return (array) MidtransApi::status($orderId);
+        } catch (Throwable $e) {
+            if ($this->errorCode($e) === 404) {
+                return null;
+            }
+
+            throw $this->toDomainException($e);
+        }
+    }
+
+    public function cancelTransaction(string $orderId): void
+    {
+        try {
+            MidtransApi::cancel($orderId);
+        } catch (Throwable $e) {
+            throw $this->toDomainException($e);
+        }
+    }
+
+    public function refundTransaction(string $orderId, array $params): array
+    {
+        try {
+            $response = (array) MidtransApi::refund($orderId, $params);
+        } catch (Throwable $e) {
+            throw $this->toDomainException($e);
+        }
+
+        if (! in_array((string) ($response['status_code'] ?? ''), ['200', '201'], true)) {
+            throw new DomainException($response['status_message'] ?? 'Midtrans rejected the refund.');
+        }
+
+        return $response;
+    }
+
+    private function errorCode(Throwable $e): int
+    {
+        if (preg_match('/HTTP status code: (\d+)/', $e->getMessage(), $match)) {
+            return (int) $match[1];
+        }
+
+        return (int) $e->getCode();
+    }
+
+    private function toDomainException(Throwable $e): DomainException
+    {
+        Log::warning('Midtrans API error: '.$e->getMessage());
+
+        if (preg_match('/API response: (\{.*\})/s', $e->getMessage(), $match)) {
+            $body = json_decode($match[1], true);
+
+            if (is_array($body) && ! empty($body['status_message'])) {
+                return new DomainException($body['status_message'], 0, $e);
+            }
+        }
+
+        return new DomainException('Midtrans is not reachable right now. Please try again.', 0, $e);
+    }
+
     private function hasValidSignature(array $payload): bool
     {
         $expected = hash('sha512',

@@ -121,7 +121,7 @@ class TransactionService
 
             $status = $notification['transaction_status'];
 
-            if ($payment->payment_date !== null && ! in_array($status, self::AFTER_PAYMENT_STATUSES, true)) {
+            if ($payment->payment_date !== null && ! in_array($status, self::AFTER_PAYMENT_STATUSES, true) && ! ($status === 'settlement' && $payment->payment_status === 'capture')) {
                 return;
             }
 
