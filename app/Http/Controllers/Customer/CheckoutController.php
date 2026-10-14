@@ -4,13 +4,19 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Services\CartService;
+use App\Services\TransactionService;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use RuntimeException;
 
 class CheckoutController extends Controller
 {
-    public function __construct(private CartService $cart) {}
+    public function __construct(
+        private CartService $cart,
+        private TransactionService $transactions,
+    ) {}
 
     public function index(): View|RedirectResponse
     {
@@ -26,20 +32,61 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /** Skeleton only: validates the form. Midtrans payment is connected in a later step. */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): View|RedirectResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'phone' => ['required', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:150'],
             'fulfillment' => ['required', 'in:pickup,delivery'],
             'address' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:500'],
+            'destination_id' => ['required_if:fulfillment,delivery', 'nullable', 'integer'],
             'courier' => ['required_if:fulfillment,delivery', 'nullable', 'in:jne,tiki,pos,sicepat,jnt'],
+            'service' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:20'],
         ]);
 
-        return back()
-            ->withInput()
-            ->with('success', 'Form is valid. Payment (Midtrans) will be connected in the next step.');
+        $items = $this->cart->items();
+
+        if ($items->isEmpty()) {
+            return redirect()->route('cart')->with('error', 'Your cart is empty.');
+        }
+
+        $lines = $items
+            ->map(fn ($line) => ['product_id' => $line->product->id, 'qty' => $line->qty])
+            ->all();
+
+        $isDelivery = $data['fulfillment'] === 'delivery';
+
+        try {
+            $transaction = $this->transactions->createOnlineTransaction(
+                $lines,
+                [
+                    'name' => $data['name'],
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                ],
+                [
+                    'method' => $data['fulfillment'],
+                    'address' => $isDelivery ? $data['address'] : null,
+                    'destination_id' => $isDelivery ? $data['destination_id'] : null,
+                    'courier' => $isDelivery ? $data['courier'] : null,
+                    'service' => $isDelivery ? $data['service'] : null,
+                ],
+                $request->user()->id,
+            );
+        } catch (DomainException|RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $this->cart->clear();
+
+        return view('customer.payment', [
+            'transaction' => $transaction,
+            'snapToken' => $transaction->payment->snap_token,
+            'clientKey' => config('services.midtrans.client_key'),
+            'snapUrl' => config('services.midtrans.is_production')
+                ? 'https://app.midtrans.com/snap/snap.js'
+                : 'https://app.sandbox.midtrans.com/snap/snap.js',
+        ]);
     }
 }
