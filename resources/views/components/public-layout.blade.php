@@ -2,6 +2,9 @@
 
 @php
 $cartCount = app(\App\Services\CartService::class)->count();
+$storeSettings = app(\App\Services\SettingService::class);
+$storeWhatsapp = $storeSettings->whatsappNumber();
+$openingLines = $storeSettings->openingHoursSummary();
 $navLinks = [
 ['label' => 'Home', 'route' => 'home', 'active' => 'home'],
 ['label' => 'Catalog', 'route' => 'catalog', 'active' => 'catalog'],
@@ -107,8 +110,8 @@ $navLinks = [
             </div>
             <div class="text-sm">
                 <div class="mb-2 font-semibold">Contact</div>
-                <p class="text-cream/70">WhatsApp: +{{ config('floristsync.whatsapp_number') }}</p>
-                <p class="text-cream/70">Open daily, 08.00 - 20.00 WIB</p>
+                <p class="text-cream/70">WhatsApp: +{{ $storeWhatsapp }}</p>
+                @foreach ($openingLines as $line)<p class="text-cream/70">{{ $line }}</p>@endforeach
             </div>
         </div>
         <div class="border-t border-white/10 py-4 text-center text-xs text-cream/60">

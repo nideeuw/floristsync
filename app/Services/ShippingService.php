@@ -47,7 +47,7 @@ class ShippingService
 
     public function calculateCost(int $destinationId, int $weightGram, string $courier = 'jne'): array
     {
-        $origin = (int) config('services.rajaongkir.origin_id');
+        $origin = (int) app(SettingService::class)->get('shipping_origin_id', config('services.rajaongkir.origin_id'));
 
         if ($origin <= 0) {
             Log::error('RajaOngkir origin_id is not configured');
@@ -150,13 +150,6 @@ class ShippingService
             ->timeout(15);
     }
 
-    /**
-     * Send one request and return the "data" part of the response.
-     *
-     * @param  callable(PendingRequest): Response  $call
-     * @param  int[]  $emptyOnStatus  Statuses that mean "no result" and return an empty array.
-     * @param  string|null  $unavailableMessage  Message for 400/404/422 when the status is not in $emptyOnStatus.
-     */
     private function request(callable $call, array $emptyOnStatus = [], ?string $unavailableMessage = null): array
     {
         foreach (['base_url', 'api_key'] as $key) {

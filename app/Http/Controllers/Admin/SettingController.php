@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Concerns\RendersPlaceholder;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Admin\SettingRequest;
+use App\Services\SettingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class SettingController extends Controller
 {
-    use RendersPlaceholder;
-
-    public function index(Request $request): View
+    public function __construct(private readonly SettingService $settings)
     {
-        return $this->placeholder($request);
     }
 
-    public function update(Request $request): never
+    public function index(): View
     {
-        abort(501, 'Not implemented yet.');
+        return view('admin.settings.index', ['form' => $this->settings->form()]);
+    }
+
+    public function update(SettingRequest $request): RedirectResponse
+    {
+        $this->settings->save($request->payload());
+
+        return redirect()->route('admin.settings')->with('success', 'Store settings saved.');
     }
 }
