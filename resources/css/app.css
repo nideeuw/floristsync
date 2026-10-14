@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,17 +8,32 @@
     display: none !important;
 }
 
+@layer base {
+    html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 5rem;
+    }
+}
+
 @layer components {
     .btn-primary {
-        @apply inline-flex items-center justify-center rounded-full bg-moss px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex items-center justify-center gap-2 rounded-full bg-moss px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center rounded-full bg-petal px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-blush disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex items-center justify-center gap-2 rounded-full bg-petal px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-blush disabled:cursor-not-allowed disabled:opacity-50;
     }
 
     .btn-outline {
-        @apply inline-flex items-center justify-center rounded-full border border-moss px-5 py-2.5 text-sm font-semibold text-moss transition hover:bg-moss hover:text-white;
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-moss px-5 py-2.5 text-sm font-semibold text-moss transition hover:bg-moss hover:text-white;
+    }
+
+    .btn-light {
+        @apply inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-cream;
+    }
+
+    .btn-ghost-light {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/50 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10;
     }
 
     .input {
@@ -26,8 +43,46 @@
     .card {
         @apply rounded-2xl border border-blush bg-white shadow-sm;
     }
+
+    .eyebrow {
+        @apply inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-moss;
+    }
+
+    .section-title {
+        @apply font-display text-4xl font-semibold leading-tight text-ink md:text-5xl;
+    }
 }
 
+.js-reveal [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--d, 0ms);
+}
+
+.js-reveal [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .js-reveal [data-reveal] {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+
+    .animate-float,
+    .animate-float-slow,
+    .animate-fade-up,
+    .animate-marquee {
+        animation: none !important;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+}
 
 .fs-show-collapsed {
     display: none;
