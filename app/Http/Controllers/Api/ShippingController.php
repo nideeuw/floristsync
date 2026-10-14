@@ -16,7 +16,10 @@ class ShippingController extends Controller
     {
         $data = $request->validate(['q' => ['required', 'string', 'min:3', 'max:60']]);
 
-        return $this->safely(fn () => $this->shipping->searchDestination($data['q']));
+        return $this->safely(
+            fn () => $this->shipping->searchDestination($data['q']),
+            'No destination found. Try another city or district name.'
+        );
     }
 
     public function cost(Request $request): JsonResponse
@@ -29,19 +32,26 @@ class ShippingController extends Controller
             'items.*.qty' => ['required', 'integer', 'min:1'],
         ]);
 
-        return $this->safely(fn () => $this->shipping->calculateCost(
-            $data['destination_id'],
-            $this->shipping->calculateWeight($data['items']),
-            $data['courier']
-        ));
+        return $this->safely(
+            fn () => $this->shipping->calculateCost(
+                (int) $data['destination_id'],
+                $this->shipping->calculateWeight($data['items']),
+                $data['courier']
+            ),
+            'No shipping service is available for this courier and destination.'
+        );
     }
 
-    private function safely(callable $action): JsonResponse
+    private function safely(callable $action, string $emptyMessage): JsonResponse
     {
         try {
-            return response()->json(['data' => $action()]);
+            $result = $action();
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 502);
         }
+
+        return response()->json(
+            $result === [] ? ['data' => [], 'message' => $emptyMessage] : ['data' => $result]
+        );
     }
 }
