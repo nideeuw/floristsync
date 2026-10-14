@@ -1,4 +1,4 @@
-@props(['href' => null, 'size' => 'md'])
+@props(['href' => null, 'size' => 'md', 'light' => false])
 
 @php
 $name = config('app.name');
@@ -12,5 +12,5 @@ $text = $size === 'lg' ? 'text-4xl' : 'text-[1.7rem]';
     <span class="{{ $box }} flex shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-blush transition duration-300 group-hover:scale-105 group-hover:shadow-md">
         <img src="{{ asset('images/logo.png') }}" alt="" class="h-full w-full object-contain">
     </span>
-    <span class="font-display {{ $text }} font-semibold leading-none tracking-tight text-ink">{{ $first }}@if ($hasSync)<span class="italic text-moss">Sync</span>@endif</span>
+    <span class="font-display {{ $text }} font-semibold leading-none tracking-tight {{ $light ? 'text-cream' : 'text-ink' }}">{{ $first }}@if ($hasSync)<span class="italic {{ $light ? 'text-petal' : 'text-moss' }}">Sync</span>@endif</span>
 </a>
