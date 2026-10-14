@@ -103,7 +103,13 @@
         {{-- Own orders --}}
         <div class="mt-8 space-y-3">
             @forelse ($orders as $order)
-            <div class="card flex flex-wrap items-center justify-between gap-3 p-4
+            @php
+                $canCancel = in_array($order->status, $cancellable, true);
+                $cancelState = $order->cancel_request_status;
+                $reasonFailed = $errors->has('reason') && (int) old('cancel_order_id') === (int) $order->id;
+            @endphp
+            <div x-data="{ open: {{ $reasonFailed ? 'true' : 'false' }} }"
+                class="card flex flex-wrap items-center justify-between gap-3 p-4
                         {{ $selected && $selected->id === $order->id ? 'ring-2 ring-sage/40' : '' }}">
                 <div>
                     <div class="font-mono text-sm font-semibold">{{ $order->order_number }}</div>
@@ -119,20 +125,46 @@
                     <a href="{{ route('track', ['order' => $order->order_number, 'page' => $orders->currentPage()]) }}"
                         class="btn-primary">View status</a>
 
-                    @if (in_array($order->status, $cancellable, true))
-                        @if ($order->cancel_requested_at)
+                    @if ($canCancel)
+                        @if ($cancelState === \App\Models\Transaction::CANCEL_PENDING)
                         <span class="text-xs text-gray-600">Cancellation requested</span>
+                        @elseif ($cancelState === \App\Models\Transaction::CANCEL_REJECTED)
+                        <span class="text-xs text-gray-600">Cancellation request declined. Please contact us via WhatsApp.</span>
                         @else
-                        <form method="POST" action="{{ route('track.cancel', $order) }}"
-                            onsubmit="return confirm('Cancel this order?')">
-                            @csrf
-                            <button class="rounded-xl border border-blush px-4 py-2 text-sm font-semibold text-red-700 hover:bg-blush/40">
-                                Cancel order
-                            </button>
-                        </form>
+                        <button type="button" @click="open = ! open"
+                            class="rounded-xl border border-blush px-4 py-2 text-sm font-semibold text-red-700 hover:bg-blush/40">
+                            Cancel order
+                        </button>
                         @endif
                     @endif
                 </div>
+
+                @if ($canCancel && blank($cancelState))
+                <form x-show="open" x-cloak method="POST" action="{{ route('track.cancel', $order) }}"
+                    onsubmit="return confirm('Cancel this order?')"
+                    class="w-full space-y-2 border-t border-blush pt-3">
+                    @csrf
+                    <input type="hidden" name="cancel_order_id" value="{{ $order->id }}">
+
+                    <label class="block text-sm font-medium">Reason for cancelling</label>
+                    <textarea name="reason" rows="2" required minlength="5" maxlength="255" class="input"
+                        placeholder="Tell us why you want to cancel (at least 5 characters)">{{ $reasonFailed ? old('reason') : '' }}</textarea>
+
+                    @if ($reasonFailed)
+                    <p class="text-sm text-red-600">{{ $errors->first('reason') }}</p>
+                    @endif
+
+                    <p class="text-xs text-gray-600">
+                        {{ $order->status === \App\Models\Transaction::PROCESSING
+                            ? 'This order is already paid. Our team will review your request before it is cancelled.'
+                            : 'Your unpaid order will be cancelled right away.' }}
+                    </p>
+
+                    <button class="rounded-xl border border-blush px-4 py-2 text-sm font-semibold text-red-700 hover:bg-blush/40">
+                        Confirm cancellation
+                    </button>
+                </form>
+                @endif
             </div>
             @empty
             <x-ui.empty-state icon="search-x" title="No orders yet"
