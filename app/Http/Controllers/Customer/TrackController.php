@@ -4,67 +4,44 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Services\ShippingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Throwable;
 
 class TrackController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, ShippingService $shipping): View
     {
+        $own = Transaction::with('details.product', 'payment')
+            ->where('user_id', $request->user()->id)
+            ->where('transaction_type', Transaction::TYPE_ONLINE);
+
+        $orders = (clone $own)->latest('created_on')->paginate(10)->withQueryString();
+
         $orderNumber = trim((string) $request->query('order', ''));
-        $order = null;
+        $selected = null;
+        $tracking = null;
 
         if ($orderNumber !== '') {
-            $order = strtoupper($orderNumber) === 'DEMO'
-                ? $this->demoOrder()
-                : $this->findOrder($orderNumber);
+            $selected = (clone $own)
+                ->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $orderNumber))
+                ->first();
+        }
+
+        if ($selected && $selected->tracking_number && $selected->courier) {
+            try {
+                $tracking = $shipping->trackWaybill($selected->tracking_number, $selected->courier);
+            } catch (Throwable) {
+                $tracking = null;
+            }
         }
 
         return view('customer.track', [
+            'orders' => $orders,
             'orderNumber' => $orderNumber,
-            'order' => $order,
+            'selected' => $selected,
+            'tracking' => $tracking,
         ]);
-    }
-
-    private function findOrder(string $orderNumber): ?array
-    {
-        $transaction = Transaction::with('details.product', 'payment')
-            ->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $orderNumber))
-            ->first();
-
-        if (! $transaction) {
-            return null;
-        }
-
-        return [
-            'number' => $orderNumber,
-            'status' => $transaction->status,
-            'delivery' => $transaction->isDelivery(),
-            'courier' => $transaction->courier,
-            'tracking_number' => $transaction->tracking_number,
-            'total' => $transaction->total,
-            'items' => $transaction->details->map(fn ($d) => [
-                'name' => $d->product->product_name,
-                'qty' => $d->qty,
-                'subtotal' => $d->subtotal,
-            ])->all(),
-        ];
-    }
-
-    /** Fake order so the page can be previewed: /track?order=DEMO */
-    private function demoOrder(): array
-    {
-        return [
-            'number' => 'DEMO',
-            'status' => 'shipped',
-            'delivery' => true,
-            'courier' => 'jne',
-            'tracking_number' => 'JNE1234567890',
-            'total' => 535000,
-            'items' => [
-                ['name' => 'Blush Rose Bouquet', 'qty' => 1, 'subtotal' => 450000],
-                ['name' => 'Sage Tulip Stem', 'qty' => 2, 'subtotal' => 60000],
-            ],
-        ];
     }
 }
