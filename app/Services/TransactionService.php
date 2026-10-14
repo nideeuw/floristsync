@@ -100,7 +100,9 @@ class TransactionService
             $transaction->payment->update(['snap_token' => $token]);
         } catch (Throwable $e) {
             $this->cancel($transaction);
-            throw $e;
+            Log::error('Snap token failed for order #'.$transaction->id.': '.$e->getMessage());
+
+            throw new \RuntimeException('Payment could not be started right now. Please try again.', 0, $e);
         }
 
         return $transaction;
