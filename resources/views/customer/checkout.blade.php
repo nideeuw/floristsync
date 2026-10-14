@@ -1,15 +1,153 @@
 <x-public-layout title="Checkout">
     <script>
-        function checkout(subtotal, method) {
+        function checkout(cfg) {
             return {
-                method,
-                subtotal,
+                method: cfg.method,
+                subtotal: cfg.subtotal,
+                items: cfg.items,
+                courier: cfg.courier,
+                service: cfg.service,
+                destinationId: cfg.destinationId,
+                destinationLabel: cfg.destinationLabel,
+                results: [],
+                options: [],
+                searching: false,
+                loading: false,
+                error: '',
+                timer: null,
+                requestId: 0,
+
+                get selected() {
+                    return this.options.find(o => o.service === this.service) || null;
+                },
                 get shipping() {
-                    return this.method === 'delivery' ? 25000 : 0;
+                    return this.method === 'delivery' && this.selected ? Number(this.selected.cost) : 0;
                 },
                 get total() {
                     return this.subtotal + this.shipping;
                 },
+                get canSubmit() {
+                    return this.method === 'pickup' || (!!this.destinationId && !!this.selected);
+                },
+                get groups() {
+                    const labels = { regular: 'Regular', express: 'Express', instant: 'Instant' };
+                    return Object.keys(labels)
+                        .map(key => ({ key, label: labels[key], items: this.options.filter(o => this.kind(o) === key) }))
+                        .filter(g => g.items.length);
+                },
+
+                init() {
+                    this.$watch('method', () => this.loadCosts());
+                    this.$watch('courier', () => { this.service = ''; this.loadCosts(); });
+
+                    if (this.method === 'delivery' && this.destinationId) {
+                        this.loadCosts();
+                    }
+                },
+
+                kind(option) {
+                    const text = ((option.service || '') + ' ' + (option.description || '')).toLowerCase();
+
+                    if (/instant|same.?day|sameday|sds|gojek|grab/.test(text)) return 'instant';
+                    if (/express|kilat|next.?day|boost|\b(yes|ons|nds)\b/.test(text)) return 'express';
+
+                    return 'regular';
+                },
+
+                async request(url, options = {}) {
+                    const res = await fetch(url, {
+                        ...options,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': cfg.csrf,
+                        },
+                    });
+                    const body = await res.json().catch(() => ({}));
+
+                    if (!res.ok) {
+                        throw new Error(body.message || 'Request failed. Please try again.');
+                    }
+
+                    return body.data || [];
+                },
+
+                onDestinationInput() {
+                    this.destinationId = null;
+                    this.options = [];
+                    this.service = '';
+                    clearTimeout(this.timer);
+
+                    if (this.destinationLabel.trim().length < 3) {
+                        this.results = [];
+                        return;
+                    }
+
+                    this.timer = setTimeout(() => this.searchDestinations(), 400);
+                },
+
+                async searchDestinations() {
+                    this.searching = true;
+                    this.error = '';
+
+                    try {
+                        this.results = await this.request(
+                            cfg.destinationsUrl + '?q=' + encodeURIComponent(this.destinationLabel.trim())
+                        );
+                    } catch (e) {
+                        this.results = [];
+                        this.error = e.message;
+                    } finally {
+                        this.searching = false;
+                    }
+                },
+
+                pickDestination(place) {
+                    this.destinationId = place.id;
+                    this.destinationLabel = place.label
+                        || [place.subdistrict_name, place.district_name, place.city_name, place.province_name].filter(Boolean).join(', ');
+                    this.results = [];
+                    this.service = '';
+                    this.loadCosts();
+                },
+
+                async loadCosts() {
+                    if (this.method !== 'delivery' || !this.destinationId) {
+                        this.options = [];
+                        return;
+                    }
+
+                    const id = ++this.requestId;
+                    this.loading = true;
+                    this.error = '';
+
+                    try {
+                        const data = await this.request(cfg.costUrl, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                destination_id: this.destinationId,
+                                courier: this.courier,
+                                items: this.items,
+                            }),
+                        });
+
+                        if (id !== this.requestId) return;
+
+                        this.options = data;
+
+                        if (!this.options.some(o => o.service === this.service)) {
+                            this.service = '';
+                        }
+                    } catch (e) {
+                        if (id !== this.requestId) return;
+                        this.options = [];
+                        this.service = '';
+                        this.error = e.message;
+                    } finally {
+                        if (id === this.requestId) this.loading = false;
+                    }
+                },
+
                 rupiah(n) {
                     return new Intl.NumberFormat('id-ID', {
                         style: 'currency',
@@ -21,8 +159,23 @@
         }
     </script>
 
-    <div class="mx-auto max-w-7xl px-4 py-10"
-        x-data="checkout({{ $subtotal }}, '{{ old('fulfillment', 'pickup') }}')">
+    @php
+        $user = auth()->user();
+        $config = [
+            'method' => old('fulfillment', 'pickup'),
+            'subtotal' => (int) $subtotal,
+            'items' => $items->map(fn ($i) => ['product_id' => $i->product->id, 'qty' => $i->qty])->values(),
+            'courier' => old('courier', 'jne'),
+            'service' => old('service', ''),
+            'destinationId' => old('destination_id', $user->destination_id),
+            'destinationLabel' => old('destination', $user->destination_label ?? ''),
+            'csrf' => csrf_token(),
+            'destinationsUrl' => url('/api/shipping/destinations'),
+            'costUrl' => url('/api/shipping/cost'),
+        ];
+    @endphp
+
+    <div class="mx-auto max-w-7xl px-4 py-10" x-data="checkout({{ Js::from($config) }})">
         <h1 class="mb-6 text-3xl font-bold">Checkout</h1>
 
         <form method="POST" action="{{ route('checkout.store') }}" class="grid gap-6 lg:grid-cols-3">
@@ -36,17 +189,17 @@
                         <div>
                             <label class="mb-1 block text-sm font-medium">Full name</label>
                             <input type="text" name="name" required class="input"
-                                value="{{ old('name', auth()->user()->name) }}">
+                                value="{{ old('name', $user->name) }}">
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium">Phone</label>
                             <input type="text" name="phone" required class="input"
-                                value="{{ old('phone', auth()->user()->phone) }}">
+                                value="{{ old('phone', $user->phone) }}">
                         </div>
                         <div class="md:col-span-2">
                             <label class="mb-1 block text-sm font-medium">Email (optional)</label>
                             <input type="email" name="email" class="input"
-                                value="{{ old('email', auth()->user()->email) }}">
+                                value="{{ old('email', $user->email) }}">
                         </div>
                     </div>
                 </div>
@@ -75,33 +228,100 @@
                         </label>
                     </div>
 
+                    @error('fulfillment')
+                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+
                     <div x-show="method === 'delivery'" x-cloak class="mt-5 grid gap-4 md:grid-cols-2">
-                        <div class="md:col-span-2">
+                        {{-- Destination search --}}
+                        <div class="relative md:col-span-2" @click.outside="results = []">
                             <label class="mb-1 block text-sm font-medium">City / district</label>
-                            <input type="text" name="destination" class="input"
-                                placeholder="Search destination (RajaOngkir search comes next)"
-                                value="{{ old('destination') }}">
+                            <input type="text" name="destination" class="input" autocomplete="off"
+                                placeholder="Type at least 3 letters, then pick a place"
+                                x-model="destinationLabel" @input="onDestinationInput()">
+                            <input type="hidden" name="destination_id" :value="destinationId">
+
+                            <p x-show="searching" x-cloak class="mt-1 text-xs text-gray-500">Searching...</p>
+
+                            <ul x-show="results.length" x-cloak
+                                class="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-blush bg-white shadow">
+                                <template x-for="place in results" :key="place.id">
+                                    <li>
+                                        <button type="button" @click="pickDestination(place)"
+                                            class="block w-full px-4 py-2 text-left text-sm hover:bg-blush/40"
+                                            x-text="place.label || [place.subdistrict_name, place.district_name, place.city_name, place.province_name].filter(Boolean).join(', ')"></button>
+                                    </li>
+                                </template>
+                            </ul>
+
+                            @error('destination_id')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
+
                         <div>
                             <label class="mb-1 block text-sm font-medium">Courier</label>
-                            <select name="courier" class="input">
+                            <select name="courier" class="input" x-model="courier">
                                 @foreach (['jne' => 'JNE', 'tiki' => 'TIKI', 'pos' => 'POS Indonesia', 'sicepat' => 'SiCepat', 'jnt' => 'J&T'] as $code => $label)
-                                <option value="{{ $code }}" @selected(old('courier')===$code)>{{ $label }}</option>
+                                <option value="{{ $code }}">{{ $label }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div>
-                            <label class="mb-1 block text-sm font-medium">Service</label>
-                            <select name="service" class="input">
-                                <option value="REG">REG - Rp 25.000 (2-3 days)</option>
-                                <option value="YES">YES - Rp 45.000 (1 day)</option>
-                            </select>
+
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-sm font-medium">Shipping service</label>
+
+                            <p x-show="!destinationId" class="text-sm text-gray-500">Pick a destination to see shipping options.</p>
+                            <p x-show="loading" x-cloak class="text-sm text-gray-500">Loading shipping options...</p>
+                            <p x-show="error" x-cloak x-text="error" class="rounded-xl bg-blush/50 p-3 text-sm"></p>
+                            <p x-show="destinationId && !loading && !error && !options.length" x-cloak class="text-sm text-gray-500">
+                                No service available for this courier. Try another courier.
+                            </p>
+
+                            <div class="space-y-4">
+                                <template x-for="group in groups" :key="group.key">
+                                    <div>
+                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-moss" x-text="group.label"></p>
+                                        <div class="grid gap-2 md:grid-cols-2">
+                                            <template x-for="option in group.items" :key="option.service">
+                                                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-blush p-3"
+                                                    :class="service === option.service ? 'border-moss ring-2 ring-sage/40' : ''">
+                                                    <input type="radio" name="service" :value="option.service" x-model="service" class="mt-1 accent-moss">
+                                                    <span class="text-sm">
+                                                        <span class="block font-semibold" x-text="option.service"></span>
+                                                        <span class="block text-xs text-gray-600" x-text="option.description || ''"></span>
+                                                        <span class="block text-xs text-gray-600" x-text="rupiah(option.cost) + (option.etd ? ' (' + option.etd + ')' : '')"></span>
+                                                    </span>
+                                                </label>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            @error('service')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
+
                         <div class="md:col-span-2">
                             <label class="mb-1 block text-sm font-medium">Full address</label>
-                            <textarea name="address" rows="3" class="input">{{ old('address') }}</textarea>
+                            <textarea name="address" rows="3" class="input">{{ old('address', $user->address) }}</textarea>
+                            @error('address')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
+                </div>
+
+                {{-- Special note --}}
+                <div class="card p-6">
+                    <h2 class="mb-4 text-lg font-bold">Special note (optional)</h2>
+                    <textarea name="notes" rows="3" maxlength="500" class="input"
+                        placeholder="Card message, preferred time, or anything we should know.">{{ old('notes') }}</textarea>
+                    @error('notes')
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
             </div>
 
@@ -126,7 +346,7 @@
                         </div>
                         <div class="flex justify-between">
                             <span>Shipping</span>
-                            <span x-text="shipping === 0 ? 'Free' : rupiah(shipping)"></span>
+                            <span x-text="method === 'pickup' ? 'Free' : (selected ? rupiah(shipping) : 'Select a service')"></span>
                         </div>
                         <div class="flex justify-between pt-2 text-lg font-bold">
                             <span>Total</span>
@@ -134,8 +354,9 @@
                         </div>
                     </div>
 
-                    <button class="btn-primary mt-6 w-full">Place Order &amp; Pay</button>
-                    <p class="mt-2 text-center text-xs text-gray-500">Payment via Midtrans (card, QRIS, e-wallet).</p>
+                    <button class="btn-primary mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="!canSubmit">Place Order &amp; Pay</button>
+                    <p class="mt-2 text-center text-xs text-gray-500">Final shipping cost is confirmed by the server. Payment via Midtrans (card, QRIS, e-wallet).</p>
                 </div>
             </div>
         </form>

@@ -74,6 +74,7 @@ class TransactionService
                     ? "{$customer['name']} ({$customer['phone']})\n{$delivery['address']}"
                     : null,
                 'courier' => $isDelivery ? $delivery['courier'] : null,
+                'notes' => $customer['notes'] ?? null,
                 'total' => $subtotal + $shippingCost,
             ]);
 

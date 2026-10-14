@@ -43,6 +43,7 @@ class CheckoutController extends Controller
             'destination_id' => ['required_if:fulfillment,delivery', 'nullable', 'integer'],
             'courier' => ['required_if:fulfillment,delivery', 'nullable', 'in:jne,tiki,pos,sicepat,jnt'],
             'service' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:20'],
+            'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         $items = $this->cart->items();
@@ -64,6 +65,7 @@ class CheckoutController extends Controller
                     'name' => $data['name'],
                     'phone' => $data['phone'],
                     'email' => $data['email'] ?? null,
+                    'notes' => $data['notes'] ?? null,
                 ],
                 [
                     'method' => $data['fulfillment'],
