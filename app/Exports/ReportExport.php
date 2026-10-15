@@ -2,11 +2,12 @@
 
 namespace App\Exports;
 
-use Illuminate\Support\Carbon;
+use App\Services\ReportService;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
@@ -15,17 +16,17 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 
     private array $rows = [];
     private array $titleRows = [];
-    private array $headingRows = [];
-    private array $moneyCells = [];
+    private int $headingRow = 0;
+    private int $firstData = 0;
+    private int $lastData = 0;
 
     public function __construct(
         private readonly string $storeName,
-        private readonly Carbon $from,
-        private readonly Carbon $to,
-        private readonly array $summary,
-        private readonly iterable $topProducts,
-        private readonly iterable $lowStock,
-        private readonly int $lowStockThreshold,
+        private readonly string $title,
+        private readonly string $period,
+        private readonly array $notes,
+        private readonly array $columns,
+        private readonly iterable $data,
     ) {
         $this->build();
     }
@@ -37,7 +38,7 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 
     public function title(): string
     {
-        return 'Report';
+        return mb_substr($this->title, 0, 31);
     }
 
     public function styles(Worksheet $sheet): array
@@ -46,12 +47,19 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
             $sheet->getStyle("A{$row}")->getFont()->setBold(true)->setSize(13);
         }
 
-        foreach ($this->headingRows as $row) {
-            $sheet->getStyle("A{$row}:C{$row}")->getFont()->setBold(true);
-        }
+        $lastColumn = Coordinate::stringFromColumnIndex(max(1, count($this->columns)));
+        $sheet->getStyle("A{$this->headingRow}:{$lastColumn}{$this->headingRow}")->getFont()->setBold(true);
 
-        foreach ($this->moneyCells as $cell) {
-            $sheet->getStyle($cell)->getNumberFormat()->setFormatCode(self::MONEY_FORMAT);
+        if ($this->lastData >= $this->firstData && $this->firstData > 0) {
+            foreach ($this->columns as $index => $column) {
+                if ($column['type'] !== 'money') {
+                    continue;
+                }
+
+                $letter = Coordinate::stringFromColumnIndex($index + 1);
+                $sheet->getStyle("{$letter}{$this->firstData}:{$letter}{$this->lastData}")
+                    ->getNumberFormat()->setFormatCode(self::MONEY_FORMAT);
+            }
         }
 
         return [];
@@ -59,47 +67,40 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
 
     private function build(): void
     {
-        $this->addTitle($this->storeName);
-        $this->addTitle('Sales report');
-        $this->add(['Period', $this->from->format('d M Y') . ' - ' . $this->to->format('d M Y')]);
+        $this->titleRows[] = $this->add([$this->storeName]);
+        $this->titleRows[] = $this->add([$this->title]);
+        $this->add(['Period', $this->period]);
+
+        if ($this->notes !== []) {
+            $this->add(['Filters', implode(', ', $this->notes)]);
+        }
+
         $this->add(['Generated', now()->format('d M Y H:i')]);
-        $this->blank();
+        $this->add(['']);
 
-        $this->addTitle('Revenue summary');
-        $this->addHeading(['Metric', 'Value']);
-        $this->addMoney(['Revenue', (int) $this->summary['revenue']], 'B');
-        $this->add(['Orders', (int) $this->summary['orders']]);
-        $this->addMoney(['Average order value', (int) $this->summary['average']], 'B');
-        $this->addMoney(['POS revenue', (int) $this->summary['pos_revenue']], 'B');
-        $this->addMoney(['Online revenue', (int) $this->summary['online_revenue']], 'B');
-        $this->blank();
+        $this->headingRow = $this->add(array_column($this->columns, 'label'));
 
-        $this->addTitle('Best selling products');
-        $this->addHeading(['Product', 'Sold', 'Revenue']);
+        $count = 0;
 
-        $top = collect($this->topProducts);
+        foreach ($this->data as $row) {
+            $line = [];
 
-        if ($top->isEmpty()) {
-            $this->add(['No sales in this period.']);
+            foreach ($this->columns as $column) {
+                $value = $row->{$column['key']} ?? null;
+
+                $line[] = in_array($column['type'], ['money', 'int'], true)
+                    ? (int) $value
+                    : ReportService::format($column['type'], $value);
+            }
+
+            $index = $this->add($line);
+            $this->firstData = $this->firstData ?: $index;
+            $this->lastData = $index;
+            $count++;
         }
 
-        foreach ($top as $row) {
-            $this->addMoney([$row->product_name, (int) $row->total_qty, (int) $row->total_revenue], 'C');
-        }
-
-        $this->blank();
-
-        $this->addTitle('Low stock (at or below ' . $this->lowStockThreshold . ')');
-        $this->addHeading(['Product', 'Stock']);
-
-        $low = collect($this->lowStock);
-
-        if ($low->isEmpty()) {
-            $this->add(['All products have enough stock.']);
-        }
-
-        foreach ($low as $product) {
-            $this->add([$product->product_name, (int) $product->stock]);
+        if ($count === 0) {
+            $this->add(['No data for these filters.']);
         }
     }
 
@@ -108,25 +109,5 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
         $this->rows[] = $row;
 
         return count($this->rows);
-    }
-
-    private function blank(): void
-    {
-        $this->add(['']);
-    }
-
-    private function addTitle(string $text): void
-    {
-        $this->titleRows[] = $this->add([$text]);
-    }
-
-    private function addHeading(array $row): void
-    {
-        $this->headingRows[] = $this->add($row);
-    }
-
-    private function addMoney(array $row, string $column): void
-    {
-        $this->moneyCells[] = $column . $this->add($row);
     }
 }

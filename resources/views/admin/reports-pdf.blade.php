@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Sales report</title>
+    <title>{{ $title }}</title>
     <style>
         @page { margin: 28px 32px; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 11px; color: #2b2b2b; }
@@ -15,17 +15,19 @@
         th, td { padding: 6px 8px; border-bottom: 1px solid #ECE0DA; }
         .right { text-align: right; }
         .empty { padding: 14px 8px; text-align: center; color: #888; }
-        .low { color: #b91c1c; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="head">
         <h1>{{ $storeName }}</h1>
-        <p class="meta">Sales report &middot; {{ $from->format('d M Y') }} - {{ $to->format('d M Y') }} (last {{ $days }} days)</p>
+        <p class="meta">{{ $title }} &middot; {{ $period }}</p>
+        @if (count($notes))
+        <p class="meta">Filters: {{ implode(', ', $notes) }}</p>
+        @endif
         <p class="meta">Generated {{ now()->format('d M Y H:i') }}</p>
     </div>
 
-    <h2>Revenue summary</h2>
+    <h2>Summary</h2>
     <table>
         <thead>
             <tr>
@@ -34,52 +36,33 @@
             </tr>
         </thead>
         <tbody>
-            <tr><td>Revenue</td><td class="right">{{ rupiah($summary['revenue']) }}</td></tr>
-            <tr><td>Orders</td><td class="right">{{ $summary['orders'] }}</td></tr>
-            <tr><td>Average order value</td><td class="right">{{ rupiah($summary['average']) }}</td></tr>
-            <tr><td>POS revenue</td><td class="right">{{ rupiah($summary['pos_revenue']) }}</td></tr>
-            <tr><td>Online revenue</td><td class="right">{{ rupiah($summary['online_revenue']) }}</td></tr>
+            @foreach ($cards as $card)
+            <tr>
+                <td>{{ $card['label'] }}@if ($card['hint']) <span style="color:#888">({{ $card['hint'] }})</span>@endif</td>
+                <td class="right">{{ $card['value'] }}</td>
+            </tr>
+            @endforeach
         </tbody>
     </table>
 
-    <h2>Best selling products</h2>
+    <h2>{{ $title }}</h2>
     <table>
         <thead>
             <tr>
-                <th>Product</th>
-                <th>Sold</th>
-                <th class="right">Revenue</th>
+                @foreach ($columns as $column)
+                <th class="{{ in_array($column['type'], ['int', 'money'], true) ? 'right' : '' }}">{{ $column['label'] }}</th>
+                @endforeach
             </tr>
         </thead>
         <tbody>
-            @forelse ($topProducts as $row)
+            @forelse ($rows as $row)
             <tr>
-                <td>{{ $row->product_name }}</td>
-                <td>{{ $row->total_qty }}</td>
-                <td class="right">{{ rupiah($row->total_revenue) }}</td>
+                @foreach ($columns as $column)
+                <td class="{{ in_array($column['type'], ['int', 'money'], true) ? 'right' : '' }}">{{ \App\Services\ReportService::format($column['type'], $row->{$column['key']} ?? null) }}</td>
+                @endforeach
             </tr>
             @empty
-            <tr><td colspan="3" class="empty">No sales in this period.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-
-    <h2>Low stock (at or below {{ config('floristsync.low_stock_threshold') }})</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th>Stock</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($lowStock as $product)
-            <tr>
-                <td>{{ $product->product_name }}</td>
-                <td class="low">{{ $product->stock }}</td>
-            </tr>
-            @empty
-            <tr><td colspan="2" class="empty">All products have enough stock.</td></tr>
+            <tr><td colspan="{{ count($columns) }}" class="empty">No data for these filters.</td></tr>
             @endforelse
         </tbody>
     </table>
