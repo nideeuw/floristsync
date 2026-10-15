@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\Transaction;
+use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,7 @@ class TransactionService
         private MidtransService $midtrans,
         private ShippingService $shipping,
         private NotificationService $notifications,
+        private ShiftService $shifts,
     ) {}
 
     public function createPosTransaction(array $items, int $cashierId, string $paymentMethod, int $paidAmount = 0): Transaction
@@ -34,8 +36,12 @@ class TransactionService
                 throw new DomainException('Cash payment is not enough.');
             }
 
+            $cashier = User::find($cashierId);
+            $shift = $cashier ? $this->shifts->current($cashier) : null;
+
             $transaction = Transaction::create([
                 'cashier_id' => $cashierId,
+                'shift_id' => $shift?->id,
                 'transaction_type' => Transaction::TYPE_POS,
                 'status' => Transaction::COMPLETED,
                 'total' => $subtotal,

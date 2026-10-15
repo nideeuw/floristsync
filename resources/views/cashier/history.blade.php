@@ -1,8 +1,18 @@
 <x-pos-layout title="History">
     <div class="h-[calc(100vh-3.5rem)] overflow-y-auto p-6">
         <div class="mx-auto max-w-5xl">
-            <h1 class="text-2xl font-bold">My Sales Today</h1>
-            <p class="text-sm text-gray-600">Reprint receipts and check your totals before closing the shift.</p>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold">My Sales Today</h1>
+                    <p class="text-sm text-gray-600">Reprint receipts and check your totals before closing the shift.</p>
+                </div>
+                @if ($shift)
+                <div class="inline-flex items-center gap-2 self-start rounded-full border border-sage/40 bg-cream px-3.5 py-1.5 text-xs text-moss shadow-sm sm:self-auto">
+                    <span class="h-2 w-2 rounded-full bg-moss"></span>
+                    <span>Shift #{{ $shift->id }} &bull; Opened {{ $shift->opened_at?->format('H:i') }}</span>
+                </div>
+                @endif
+            </div>
 
             {{-- Summary --}}
             <div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -57,7 +67,9 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">No sales yet today.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                {{ $shift ? 'No sales yet in this shift.' : 'No sales yet today.' }}
+                            </td>
                         </tr>
                         @endforelse
                     </tbody>
