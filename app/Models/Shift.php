@@ -27,4 +27,9 @@ class Shift extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function isOpen(): bool
+    {
+        return $this->closed_at === null;
+    }
 }
