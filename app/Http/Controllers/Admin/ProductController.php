@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
-use App\Models\TransactionDetail;
 use App\Services\InventoryService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -114,18 +113,10 @@ class ProductController extends Controller
         return back()->with('success', 'Stock updated.');
     }
 
-    public function destroy(Product $product): RedirectResponse
+    public function toggleActive(Product $product): RedirectResponse
     {
-        if (TransactionDetail::where('product_id', $product->id)->exists()) {
-            return back()->with('error', 'This product is used in orders. Deactivate it instead.');
-        }
+        $product->update(['is_active' => ! $product->is_active]);
 
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
-        }
-
-        $product->delete();
-
-        return redirect()->route('admin.products.index')->with('success', 'Product deleted.');
+        return back()->with('success', $product->is_active ? 'Product activated.' : 'Product deactivated.');
     }
 }

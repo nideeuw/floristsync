@@ -125,12 +125,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // ---- Inventory ----
         Route::middleware('menu.perm:admin.products.index')->group(function () {
-            Route::resource('products', AdminProductController::class)->except('show');
+            Route::resource('products', AdminProductController::class)->except(['show', 'destroy']);
             Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
+            Route::patch('products/{product}/toggle', [AdminProductController::class, 'toggleActive'])->name('products.toggle');
         });
 
         Route::middleware('menu.perm:admin.categories.index')->group(function () {
-            Route::resource('categories', CategoryController::class)->except('show');
+            Route::resource('categories', CategoryController::class)->except(['show', 'destroy']);
+            Route::patch('categories/{category}/toggle', [CategoryController::class, 'toggleActive'])->name('categories.toggle');
         });
 
         Route::get('stock', [StockController::class, 'index'])
