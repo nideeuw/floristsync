@@ -27,6 +27,9 @@ $change = ($isCash && $paid >= $transaction->total) ? $paid - $transaction->tota
             <div class="flex justify-between"><span>Order</span><span>{{ $transaction->order_number }}</span></div>
             <div class="flex justify-between"><span>Date</span><span>{{ \Carbon\Carbon::parse($transaction->created_on)->format('d/m/Y H:i') }}</span></div>
             <div class="flex justify-between"><span>Cashier</span><span>{{ $transaction->cashier?->name ?? '-' }}</span></div>
+            @if ($transaction->user)
+            <div class="flex justify-between"><span>Customer</span><span>{{ $transaction->user->name }}</span></div>
+            @endif
         </div>
 
         <hr class="my-3 border-dashed border-gray-400">
@@ -52,6 +55,14 @@ $change = ($isCash && $paid >= $transaction->total) ? $paid - $transaction->tota
             <div class="flex justify-between"><span>Change</span><span>{{ rupiah($change) }}</span></div>
             @endif
         </div>
+
+        @if ($transaction->notes)
+        <hr class="my-3 border-dashed border-gray-400">
+        <div class="text-xs">
+            <div class="font-bold">Card Message / Note:</div>
+            <div class="whitespace-pre-line text-gray-700">{{ $transaction->notes }}</div>
+        </div>
+        @endif
 
         <hr class="my-3 border-dashed border-gray-400">
 

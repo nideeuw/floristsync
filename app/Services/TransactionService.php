@@ -27,9 +27,15 @@ class TransactionService
         private ShiftService $shifts,
     ) {}
 
-    public function createPosTransaction(array $items, int $cashierId, string $paymentMethod, int $paidAmount = 0): Transaction
-    {
-        return DB::transaction(function () use ($items, $cashierId, $paymentMethod, $paidAmount) {
+    public function createPosTransaction(
+        array $items,
+        int $cashierId,
+        string $paymentMethod,
+        int $paidAmount = 0,
+        ?int $userId = null,
+        ?string $notes = null
+    ): Transaction {
+        return DB::transaction(function () use ($items, $cashierId, $paymentMethod, $paidAmount, $userId, $notes) {
             [$rows, $subtotal] = $this->prepareItems($items);
 
             if ($paymentMethod === 'cash' && $paidAmount < $subtotal) {
@@ -42,10 +48,12 @@ class TransactionService
             $isQris = $paymentMethod === 'qris';
 
             $transaction = Transaction::create([
+                'user_id' => $userId,
                 'cashier_id' => $cashierId,
                 'shift_id' => $shift?->id,
                 'transaction_type' => Transaction::TYPE_POS,
                 'status' => $isQris ? Transaction::PENDING_PAYMENT : Transaction::COMPLETED,
+                'notes' => $notes,
                 'total' => $subtotal,
             ]);
 
@@ -60,7 +68,7 @@ class TransactionService
                 'payment_date' => $isQris ? null : now(),
             ]);
 
-            return $transaction->load('details.product', 'payment');
+            return $transaction->load('details.product', 'payment', 'user');
         });
     }
 

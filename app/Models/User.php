@@ -21,9 +21,10 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    use HasAuditColumns;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
-    use HasAuditColumns;
 
     /**
      * Get the attributes that should be cast.
@@ -48,6 +49,11 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
     }
 
     public function appNotifications(): HasMany

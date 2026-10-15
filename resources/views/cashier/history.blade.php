@@ -51,7 +51,12 @@
                     <tbody class="divide-y divide-blush">
                         @forelse ($transactions as $transaction)
                         <tr>
-                            <td class="px-4 py-3 font-mono text-xs">{{ $transaction->order_number }}</td>
+                            <td class="px-4 py-3 font-mono text-xs">
+                                <div>{{ $transaction->order_number }}</div>
+                                @if ($transaction->user)
+                                <div class="text-[11px] font-sans font-semibold text-moss">{{ $transaction->user->name }}</div>
+                                @endif
+                            </td>
                             <td class="px-4 py-3">{{ \Carbon\Carbon::parse($transaction->created_on)->format('H:i') }}</td>
                             <td class="px-4 py-3">{{ $transaction->details_count }}</td>
                             <td class="px-4 py-3 uppercase">{{ $transaction->payment?->payment_method ?? '-' }}</td>

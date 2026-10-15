@@ -30,7 +30,7 @@ class TransactionController extends Controller
         );
 
         return view('cashier.receipt', [
-            'transaction' => $transaction->load('details.product', 'payment', 'cashier'),
+            'transaction' => $transaction->load('details.product', 'payment', 'cashier', 'user'),
         ]);
     }
 }

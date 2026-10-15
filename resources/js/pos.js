@@ -18,6 +18,14 @@ export default () => ({
     qris: null,
     qrisPollInterval: null,
 
+    member: null,
+    memberQuery: '',
+    memberResults: [],
+    memberSearching: false,
+    memberSearched: false,
+    notes: '',
+    showNote: false,
+
     init() {
         const data = this.$el.dataset;
 
@@ -110,6 +118,55 @@ export default () => ({
         this.cart = [];
         this.paid = '';
         this.error = '';
+        this.member = null;
+        this.memberQuery = '';
+        this.memberResults = [];
+        this.memberSearched = false;
+        this.notes = '';
+        this.showNote = false;
+    },
+
+    async searchMember() {
+        const q = this.memberQuery.trim();
+        if (!q) {
+            this.memberResults = [];
+            this.memberSearched = false;
+            return;
+        }
+
+        this.memberSearching = true;
+        this.memberSearched = false;
+
+        try {
+            const res = await fetch(`/api/pos/members?q=${encodeURIComponent(q)}`, {
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!res.ok) throw new Error('Search failed');
+
+            const json = await res.json();
+            this.memberResults = json.data ?? json;
+            this.memberSearched = true;
+        } catch (e) {
+            console.error('Member search error', e);
+            this.memberResults = [];
+        } finally {
+            this.memberSearching = false;
+        }
+    },
+
+    selectMember(m) {
+        this.member = m;
+        this.memberQuery = '';
+        this.memberResults = [];
+        this.memberSearched = false;
+    },
+
+    removeMember() {
+        this.member = null;
+        this.memberQuery = '';
+        this.memberResults = [];
+        this.memberSearched = false;
     },
 
     rupiah(n) {
@@ -134,6 +191,8 @@ export default () => ({
                     items: this.cart.map(i => ({ product_id: i.product_id, qty: i.qty })),
                     payment_method: this.method,
                     paid_amount: this.method === 'cash' ? Number(this.paid) : 0,
+                    user_id: this.member ? this.member.id : null,
+                    notes: this.notes.trim() ? this.notes.trim() : null,
                 }),
             });
 
@@ -159,6 +218,8 @@ export default () => ({
                 ...json.data,
                 method: this.method,
                 paid: this.method === 'cash' ? Number(this.paid) : json.data.total,
+                member: this.member,
+                notes: this.notes.trim() ? this.notes.trim() : null,
             };
         } catch (e) {
             this.error = 'Network error. Please try again.';
@@ -293,6 +354,12 @@ export default () => ({
         this.cart = [];
         this.paid = '';
         this.method = 'cash';
+        this.member = null;
+        this.memberQuery = '';
+        this.memberResults = [];
+        this.memberSearched = false;
+        this.notes = '';
+        this.showNote = false;
         this.load();
     },
 });

@@ -81,7 +81,7 @@ class ShiftService
             ->keyBy('payment_method');
 
         $transactions = (clone $query)
-            ->with('payment')
+            ->with(['payment', 'user'])
             ->withCount('details')
             ->latest('id')
             ->paginate($perPage);

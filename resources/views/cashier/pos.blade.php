@@ -100,6 +100,80 @@
             </div>
 
             <div class="space-y-3 border-t border-blush bg-cream/50 p-4">
+                {{-- Optional Extras: Member & Special Note --}}
+                <div class="space-y-2 border-b border-blush/60 pb-3">
+                    {{-- Member selector --}}
+                    <div>
+                        {{-- Member selected badge --}}
+                        <div x-show="member" x-cloak class="flex items-center justify-between rounded-xl border border-moss/30 bg-moss/10 px-3 py-2 text-xs">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-moss text-white font-bold text-[11px]">✓</span>
+                                <div class="truncate">
+                                    <div class="font-bold text-moss truncate" x-text="member ? member.name : ''"></div>
+                                    <div class="text-[11px] text-gray-600 truncate" x-text="member ? ('ID #' + member.id + (member.phone ? ' · ' + member.phone : '')) : ''"></div>
+                                </div>
+                            </div>
+                            <button type="button" x-on:click="removeMember()" class="ml-2 text-gray-400 hover:text-red-600 font-bold p-1" title="Remove member">✕</button>
+                        </div>
+
+                        {{-- Member search input --}}
+                        <div x-show="!member" class="relative">
+                            <div class="flex gap-1.5">
+                                <div class="relative flex-1">
+                                    <input type="text"
+                                        x-model="memberQuery"
+                                        x-ref="memberInput"
+                                        x-on:input.debounce.250ms="searchMember()"
+                                        x-on:keydown.enter.prevent="if (memberResults.length === 1) { selectMember(memberResults[0]); } else { searchMember(); }"
+                                        placeholder="Member phone or ID (optional)"
+                                        class="input py-1.5 text-xs">
+                                    <div x-show="memberSearching" class="absolute right-2.5 top-2">
+                                        <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-moss border-t-transparent"></span>
+                                    </div>
+                                </div>
+                                <button type="button" x-on:click="searchMember()" class="btn-outline px-2.5 py-1.5 text-xs shrink-0" title="Find member">
+                                    Find
+                                </button>
+                            </div>
+
+                            {{-- Dropdown results --}}
+                            <div x-show="memberResults.length > 0" x-cloak x-on:click.outside="memberResults = []"
+                                class="absolute left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-blush bg-white p-1.5 shadow-lg">
+                                <template x-for="m in memberResults" :key="m.id">
+                                    <button type="button" x-on:click="selectMember(m)"
+                                        class="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition hover:bg-blush/40">
+                                        <div class="truncate pr-2">
+                                            <div class="font-semibold text-ink truncate" x-text="m.name"></div>
+                                            <div class="text-[10px] text-gray-500" x-text="'ID #' + m.id + (m.phone ? ' · ' + m.phone : '')"></div>
+                                        </div>
+                                        <span class="rounded bg-moss/10 px-1.5 py-0.5 text-[10px] font-semibold text-moss shrink-0">Select</span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div x-show="memberSearched && memberResults.length === 0 && memberQuery.trim() !== '' && !memberSearching" x-cloak
+                                class="absolute left-0 right-0 z-20 mt-1 rounded-xl border border-blush bg-white p-2.5 text-center text-xs text-gray-500 shadow-lg">
+                                No member found.
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Card message / note --}}
+                    <div>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-semibold text-gray-600">Special Note / Card Message</span>
+                            <button type="button" x-show="!showNote && !notes" x-on:click="showNote = true; $nextTick(() => $refs.noteInput?.focus())"
+                                class="text-[11px] font-semibold text-moss hover:underline">+ Add note</button>
+                            <button type="button" x-show="showNote || notes" x-on:click="notes = ''; showNote = false"
+                                class="text-[11px] text-red-500 hover:underline">Clear</button>
+                        </div>
+                        <div x-show="showNote || notes" x-cloak class="mt-1">
+                            <textarea x-ref="noteInput" x-model="notes" rows="2" maxlength="500"
+                                placeholder="E.g. Card message: Happy Birthday Mom! Love, Jessica"
+                                class="input py-1.5 text-xs leading-relaxed resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-between text-lg font-extrabold">
                     <span>Total</span>
                     <span x-text="rupiah(total)"></span>
@@ -228,6 +302,12 @@
 
                 <div class="mt-4 space-y-1 text-sm">
                     <div class="flex justify-between"><span>Total</span><span class="font-semibold" x-text="success ? rupiah(success.total) : ''"></span></div>
+                    <template x-if="success && success.member">
+                        <div class="flex justify-between">
+                            <span>Customer</span>
+                            <span class="font-semibold text-moss" x-text="success.member.name"></span>
+                        </div>
+                    </template>
                     <template x-if="success && success.method === 'cash'">
                         <div class="space-y-1">
                             <div class="flex justify-between"><span>Cash received</span><span x-text="rupiah(success.paid)"></span></div>
@@ -236,6 +316,12 @@
                     </template>
                     <template x-if="success && success.method !== 'cash'">
                         <div class="flex justify-between"><span>Method</span><span class="uppercase" x-text="success.method"></span></div>
+                    </template>
+                    <template x-if="success && success.notes">
+                        <div class="mt-2 rounded-lg bg-blush/30 p-2.5 text-left text-xs">
+                            <span class="font-bold text-gray-600">Note:</span>
+                            <div class="italic text-gray-800 whitespace-pre-line mt-0.5" x-text="success.notes"></div>
+                        </div>
                     </template>
                 </div>
 
