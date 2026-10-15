@@ -189,9 +189,10 @@ Route::prefix('pos')->name('cashier.')->group(function () {
         Route::get('/', [PosController::class, 'index'])
             ->middleware('menu.perm:cashier.pos')->name('pos');
 
+        Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
+
         Route::middleware('menu.perm:cashier.history')->group(function () {
             Route::get('history', [TransactionController::class, 'index'])->name('history');
-            Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
         });
 
         Route::middleware('menu.perm:cashier.cancel')->group(function () {
