@@ -23,15 +23,11 @@ class DashboardController extends Controller
         };
     }
 
-    private function owner(ReportService $reports): View
+        private function owner(ReportService $reports): View
     {
         return view('admin.dashboard', [
             'today' => $reports->today(),
-            'recentOrders' => Transaction::with('payment', 'user:id,name')
-                ->where('transaction_type', Transaction::TYPE_ONLINE)
-                ->latest('id')
-                ->take(6)
-                ->get(),
+            ...$reports->ownerDashboard(30),
         ]);
     }
 }

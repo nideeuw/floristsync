@@ -60,4 +60,55 @@ class ReportService
             ->limit($limit)
             ->get();
     }
+
+    public function recentOnlineOrders(int $limit = 6): Collection
+    {
+        return Transaction::with('payment', 'user:id,name')
+            ->where('transaction_type', Transaction::TYPE_ONLINE)
+            ->latest('id')
+            ->take($limit)
+            ->get();
+    }
+
+    public function cancelledCount(Carbon $from, Carbon $to): int
+    {
+        return Transaction::where('status', Transaction::CANCELLED)
+            ->whereBetween('created_on', [$from, $to])
+            ->count();
+    }
+
+    public function paymentMethodShare(Carbon $from, Carbon $to): Collection
+    {
+        return Transaction::successful()
+            ->whereBetween('created_on', [$from, $to])
+            ->with('payment')
+            ->get()
+            ->groupBy(fn (Transaction $transaction) => strtoupper(str_replace('_', ' ', $transaction->payment?->payment_method ?? 'unknown')))
+            ->map(fn (Collection $rows, string $label) => [
+                'label' => $label,
+                'orders' => $rows->count(),
+                'revenue' => (int) $rows->sum('total'),
+            ])
+            ->sortByDesc('orders')
+            ->values();
+    }
+
+    public function ownerDashboard(int $days = 30): array
+    {
+        $from = now()->subDays($days - 1)->startOfDay();
+        $to = now()->endOfDay();
+        $summary = $this->summary($from, $to);
+
+        return [
+            'days' => $days,
+            'cancelled' => $this->cancelledCount($from, $to),
+            'channels' => [
+                'labels' => ['POS Kiosk', 'Web E-Commerce'],
+                'data' => [$summary['pos_revenue'], $summary['online_revenue']],
+            ],
+            'paymentMethods' => $this->paymentMethodShare($from, $to),
+            'topProducts' => $this->topProducts($from, $to, 5),
+            'recentOrders' => $this->recentOnlineOrders(),
+        ];
+    }
 }
