@@ -2,28 +2,46 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Concerns\RendersPlaceholder;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Services\OrderCancellationService;
+use DomainException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use RuntimeException;
 
 class OrderCancellationController extends Controller
 {
-    use RendersPlaceholder;
+    public function __construct(private OrderCancellationService $service) {}
 
-    public function index(Request $request): View
+    public function index(): View
     {
-        return $this->placeholder($request);
+        return view('admin.orders.cancellations', [
+            'requests' => $this->service->pendingRequests(),
+        ]);
     }
 
-    public function approve(Transaction $transaction): never
+    /** Refund, return the stock and cancel the order. A refund failure keeps the order untouched. */
+    public function approve(Request $request, Transaction $transaction): RedirectResponse
     {
-        abort(501, 'Not implemented yet.');
+        try {
+            $this->service->approve($transaction, $request->user());
+        } catch (DomainException | RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Cancellation approved. The order was cancelled, the stock returned and the payment refunded.');
     }
 
-    public function reject(Transaction $transaction): never
+    public function reject(Request $request, Transaction $transaction): RedirectResponse
     {
-        abort(501, 'Not implemented yet.');
+        try {
+            $this->service->reject($transaction, $request->user());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Cancellation request rejected. The order stays in processing.');
     }
 }
