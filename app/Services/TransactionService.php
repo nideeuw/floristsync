@@ -39,11 +39,13 @@ class TransactionService
             $cashier = User::find($cashierId);
             $shift = $cashier ? $this->shifts->current($cashier) : null;
 
+            $isQris = $paymentMethod === 'qris';
+
             $transaction = Transaction::create([
                 'cashier_id' => $cashierId,
                 'shift_id' => $shift?->id,
                 'transaction_type' => Transaction::TYPE_POS,
-                'status' => Transaction::COMPLETED,
+                'status' => $isQris ? Transaction::PENDING_PAYMENT : Transaction::COMPLETED,
                 'total' => $subtotal,
             ]);
 
@@ -51,10 +53,11 @@ class TransactionService
 
             Payment::create([
                 'transaction_id' => $transaction->id,
+                'midtrans_order_id' => $isQris ? 'FS-POS-'.$transaction->id.'-'.strtoupper(Str::random(6)) : null,
                 'payment_method' => $paymentMethod,
-                'payment_status' => 'settlement',
+                'payment_status' => $isQris ? 'pending' : 'settlement',
                 'amount' => $subtotal,
-                'payment_date' => now(),
+                'payment_date' => $isQris ? null : now(),
             ]);
 
             return $transaction->load('details.product', 'payment');
@@ -165,7 +168,7 @@ class TransactionService
             $remoteOrderId = null;
 
             if ($payment && $payment->payment_status === 'pending') {
-                if ($payment->snap_token) {
+                if ($payment->snap_token || $payment->midtrans_order_id) {
                     $remoteOrderId = $payment->midtrans_order_id;
                 }
 

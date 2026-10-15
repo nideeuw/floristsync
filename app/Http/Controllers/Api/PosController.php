@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Transaction;
 use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -43,9 +44,13 @@ class PosController extends Controller
         }
 
         return response()->json([
-            'message' => 'Transaction successful.',
+            'message' => $transaction->status === Transaction::PENDING_PAYMENT
+                ? 'Transaction created, awaiting QRIS payment.'
+                : 'Transaction successful.',
             'data' => [
                 'id' => $transaction->id,
+                'status' => $transaction->status,
+                'payment_method' => $data['payment_method'],
                 'total' => $transaction->total,
                 'change' => max(0, $paid - $transaction->total),
                 'receipt_url' => route('cashier.receipt', $transaction),

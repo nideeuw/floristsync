@@ -133,19 +133,90 @@
                     </div>
                 </div>
 
-                <p x-show="method !== 'cash'" x-cloak class="text-xs text-gray-600">
-                    Confirm the customer has paid on the
-                    <span x-text="method === 'qris' ? 'QRIS' : 'EDC / debit'"></span>
-                    device, then complete the order.
+                <p x-show="method === 'debit'" x-cloak class="text-xs text-gray-600">
+                    Confirm the customer has paid on the EDC / debit device, then complete the order.
+                </p>
+                <p x-show="method === 'qris'" x-cloak class="text-xs text-gray-600">
+                    Generates an interactive QRIS code via Midtrans on screen for the customer to scan.
                 </p>
 
                 <div x-show="error" x-cloak x-text="error" class="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-800"></div>
 
                 <button type="button" x-on:click="pay()" :disabled="!canPay" class="btn-primary w-full py-3 text-base">
-                    <span x-text="loading ? 'Processing...' : 'Complete Order · ' + rupiah(total)"></span>
+                    <span x-text="loading ? 'Processing...' : (method === 'qris' ? 'Generate QRIS · ' + rupiah(total) : 'Complete Order · ' + rupiah(total))"></span>
                 </button>
             </div>
         </aside>
+
+        {{-- ================= QRIS Payment modal ================= --}}
+        <div x-show="qris" x-cloak x-transition.opacity
+            class="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm">
+            <div class="card w-full max-w-md p-6 text-center ring-1 ring-blush/60 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-blush/70 pb-3">
+                    <div class="text-left">
+                        <span class="eyebrow">QRIS Payment</span>
+                        <h2 class="font-display text-2xl font-bold" x-text="qris ? 'Order #' + qris.id : 'Order'"></h2>
+                    </div>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-petal/40 px-3 py-1 text-xs font-semibold text-ink">
+                        <x-ui.icon name="clock" class="h-3.5 w-3.5" />
+                        <span>Pay via QRIS</span>
+                    </span>
+                </div>
+
+                {{-- Total amount --}}
+                <div class="mt-4 flex items-baseline justify-between rounded-xl bg-cream/50 px-4 py-2.5">
+                    <span class="text-sm text-ink/70">Total Payment</span>
+                    <span class="text-2xl font-bold text-moss" x-text="qris ? rupiah(qris.total) : ''"></span>
+                </div>
+
+                {{-- QR Code View --}}
+                <div class="mt-4 flex flex-col items-center justify-center">
+                    {{-- Loading state --}}
+                    <div x-show="qris && qris.status === 'generating'" class="flex h-64 w-64 flex-col items-center justify-center rounded-2xl border border-blush bg-cream/30">
+                        <div class="h-10 w-10 animate-spin rounded-full border-4 border-moss border-t-transparent"></div>
+                        <p class="mt-3 text-xs text-gray-500">Generating QRIS code with Midtrans...</p>
+                    </div>
+
+                    {{-- QR Code Display --}}
+                    <div x-show="qris && qris.status === 'pending'" class="flex flex-col items-center">
+                        <div class="relative rounded-2xl border-2 border-blush bg-white p-3 shadow-md">
+                            <template x-if="qris && qris.qr_url">
+                                <img :src="qris.qr_url" alt="QRIS Code" class="h-60 w-60 object-contain">
+                            </template>
+                            <div class="mt-1 flex items-center justify-center gap-1 text-[11px] font-bold tracking-wider text-gray-700">
+                                <span class="rounded bg-red-600 px-1.5 py-0.5 text-white text-[10px]">QRIS</span>
+                                <span class="text-gray-500 text-[10px]">GPN / Midtrans</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 flex items-center gap-2 text-xs text-gray-600">
+                            <span class="inline-block h-2 w-2 animate-ping rounded-full bg-moss"></span>
+                            <span>Waiting for customer payment...</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-gray-400">Scan with GoPay, BCA, OVO, Dana, ShopeePay, or any Mobile Banking</p>
+                    </div>
+
+                    {{-- Expired / Cancelled / Error State --}}
+                    <div x-show="qris && (qris.status === 'expire' || qris.status === 'cancel' || qris.status === 'deny' || qris.status === 'error')" class="flex h-64 w-full flex-col items-center justify-center rounded-2xl border border-red-200 bg-red-50/50 p-4">
+                        <div class="text-4xl">⚠️</div>
+                        <h3 class="mt-2 text-base font-bold text-red-800"
+                            x-text="qris?.status === 'expire' ? 'Payment Expired' : (qris?.status === 'cancel' ? 'Payment Cancelled' : 'Payment Error')"></h3>
+                        <p class="mt-1 text-xs text-red-600"
+                            x-text="qris?.error ?? 'The transaction was cancelled and items have been returned to stock.'"></p>
+                    </div>
+                </div>
+
+                {{-- Action buttons --}}
+                <div class="mt-6 flex gap-2">
+                    <button type="button" x-on:click="cancelQris()" class="btn-outline w-full py-2.5 text-sm">
+                        Cancel Payment
+                    </button>
+                    <button type="button" x-on:click="startQrisPolling(qris.id)" x-show="qris && qris.status === 'pending'" class="btn-primary w-full py-2.5 text-sm">
+                        Refresh Status
+                    </button>
+                </div>
+            </div>
+        </div>
 
         {{-- ================= Success modal ================= --}}
         <div x-show="success" x-cloak x-transition.opacity

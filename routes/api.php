@@ -46,6 +46,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('transactions', [PosController::class, 'store']);
         Route::post('transactions/{transaction}/qris', [PosQrisController::class, 'store']);
         Route::get('transactions/{transaction}/qris', [PosQrisController::class, 'show']);
+        Route::delete('transactions/{transaction}/qris', [PosQrisController::class, 'destroy']);
     });
 
     // Orders
