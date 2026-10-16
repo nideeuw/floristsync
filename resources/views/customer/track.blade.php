@@ -109,6 +109,8 @@
             @forelse ($orders as $order)
             @php
                 $canCancel = in_array($order->status, $cancellable, true);
+                $canPay = app(\App\Services\PaymentResumeService::class)->canResume($order);
+                $payDeadline = $canPay ? app(\App\Services\PaymentResumeService::class)->deadline($order) : null;
                 $cancelState = $order->cancel_request_status;
                 $reasonFailed = $errors->has('reason') && (int) old('cancel_order_id') === (int) $order->id;
             @endphp
@@ -130,6 +132,11 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <a href="{{ route('track', ['order' => $order->order_number, 'page' => $orders->currentPage()]) }}"
                         class="btn-primary">View status</a>
+                    
+                    @if ($canPay)
+                    <a href="{{ route('track.pay', $order) }}" class="btn-outline">Pay now</a>
+                    <span class="text-xs text-ink/60">Pay before {{ $payDeadline->format('H:i') }}</span>
+                    @endif
 
                     @if ($canCancel)
                         @if ($cancelState === \App\Models\Transaction::CANCEL_PENDING)
