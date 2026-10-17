@@ -59,7 +59,10 @@
                 <td class="whitespace-nowrap text-right">
                     <a href="{{ route('admin.products.edit', $product) }}" class="mr-3 font-semibold text-moss hover:underline">Edit</a>
                     <form method="POST" action="{{ route('admin.products.toggle', $product) }}" class="inline"
-                        onsubmit="return confirm('{{ $product->is_active ? 'Deactivate' : 'Activate' }} this product?')">
+                        data-confirm="{{ $product->is_active ? 'Deactivate' : 'Activate' }} this product?"
+                        data-confirm-title="{{ $product->is_active ? 'Deactivate product' : 'Activate product' }}"
+                        data-confirm-label="{{ $product->is_active ? 'Deactivate' : 'Activate' }}"
+                        data-confirm-tone="{{ $product->is_active ? 'danger' : 'primary' }}">
                         @csrf
                         @method('PATCH')
                         <button class="{{ $product->is_active ? 'text-red-600' : 'text-moss' }} hover:underline">

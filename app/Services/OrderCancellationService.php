@@ -10,13 +10,6 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Cancellation flow for online orders.
- *
- * - pending_payment: cancel directly (cancel the Midtrans invoice, return the stock).
- * - processing: the member sends a request, an admin approves or rejects it.
- * - ready_for_pickup, shipped, completed: cannot be cancelled (the member contacts the store on WhatsApp).
- */
 class OrderCancellationService
 {
     public function __construct(
@@ -26,7 +19,6 @@ class OrderCancellationService
         private InventoryService $inventory,
     ) {}
 
-    /** Called by the member. Cancels directly or creates a pending request, depending on the order status. */
     public function request(Transaction $transaction, User $member, string $reason): Transaction
     {
         $this->assertOwnedOnlineOrder($transaction, $member);
@@ -43,7 +35,6 @@ class OrderCancellationService
         return $transaction->refresh();
     }
 
-    /** Cancellation requests waiting for review, oldest first. */
     public function pendingRequests(int $perPage = 15): LengthAwarePaginator
     {
         return Transaction::where('transaction_type', Transaction::TYPE_ONLINE)
@@ -54,10 +45,6 @@ class OrderCancellationService
             ->withQueryString();
     }
 
-    /**
-     * Called by an admin. Refunds the payment through the Midtrans API, returns the stock once and cancels the order.
-     * If the refund fails, a DomainException is thrown and nothing is changed.
-     */
     public function approve(Transaction $transaction, User $admin): Transaction
     {
         DB::transaction(function () use ($transaction, $admin) {
@@ -65,8 +52,6 @@ class OrderCancellationService
 
             $this->assertReviewable($locked);
 
-            // The row stays locked during the refund, so a double click cannot refund or restock twice.
-            // The refund is idempotent, so it is safe to retry after a failure.
             $this->reversal->refund($locked);
 
             foreach ($locked->details()->with('product')->get() as $detail) {
@@ -90,7 +75,6 @@ class OrderCancellationService
         return $transaction->refresh();
     }
 
-    /** Called by an admin. Keeps the order as it is and marks the request as rejected. */
     public function reject(Transaction $transaction, User $admin): Transaction
     {
         DB::transaction(function () use ($transaction) {
@@ -162,12 +146,12 @@ class OrderCancellationService
                 [Role::ADMIN_ORDER],
                 'Cancellation request',
                 "Order #{$locked->id} has a cancellation request. Please review it.",
-                'order_status'
+                'order_status',
+                route('admin.orders.cancellations', [], false)
             );
         });
     }
 
-    /** Only an online order that is still processing with a pending request can be reviewed. */
     private function assertReviewable(Transaction $transaction): void
     {
         if ($transaction->transaction_type !== Transaction::TYPE_ONLINE) {

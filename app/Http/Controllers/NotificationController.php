@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -27,7 +28,7 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function markRead(Request $request, int $notification): RedirectResponse
+    public function markRead(Request $request, int $notification): RedirectResponse|Response
     {
         $item = $request->user()->appNotifications()
             ->whereKey($notification)
@@ -38,6 +39,14 @@ class NotificationController extends Controller
             'modified_by' => $request->user()->id,
             'modified_on' => now(),
         ]);
+
+        if ($request->wantsJson()) {
+            return response()->noContent();
+        }
+
+        if ($request->boolean('stay')) {
+            return back();
+        }
 
         return $this->safeRedirect($request, $item->link);
     }

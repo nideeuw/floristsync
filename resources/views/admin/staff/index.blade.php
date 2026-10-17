@@ -65,7 +65,10 @@
 
                         @if ($member->is_active)
                         <form method="POST" action="{{ route('admin.staff.destroy', $member) }}"
-                            onsubmit="return confirm('Deactivate {{ e($member->name) }}? They will no longer be able to log in.')">
+                            data-confirm="Deactivate {{ $member->name }}? They will no longer be able to log in."
+                            data-confirm-title="Deactivate staff account"
+                            data-confirm-label="Deactivate"
+                            data-confirm-tone="danger">
                             @csrf
                             @method('DELETE')
                             <button class="font-semibold text-red-600 hover:underline">Deactivate</button>

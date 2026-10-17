@@ -2,6 +2,14 @@
 
 @php
 $cartCount = app(\App\Services\CartService::class)->count();
+$bellUser = auth()->user();
+$bellHref = $bellUser && app(\App\Services\MenuPermissionService::class)->can($bellUser->role_id, 'notifications', 'view')
+    ? route('notifications')
+    : null;
+$unreadCount = $bellHref ? app(\App\Services\NotificationService::class)->unreadCount($bellUser) : 0;
+$menuLinks = collect($menuLinks)
+    ->reject(fn ($menu) => $bellHref && $menu->url_link === 'notifications')
+    ->values();
 $storeSettings = app(\App\Services\SettingService::class);
 $storeWhatsapp = $storeSettings->whatsappNumber();
 $openingLines = $storeSettings->openingHoursSummary();
@@ -37,6 +45,20 @@ $navLinks = [
             </nav>
 
             <div class="flex flex-1 items-center justify-end gap-2 text-sm">
+                {{-- Notifications --}}
+                @if ($bellHref)
+                <a href="{{ $bellHref }}"
+                    class="relative flex h-11 w-11 items-center justify-center rounded-full border border-blush transition hover:bg-blush {{ request()->routeIs('notifications') ? 'bg-blush' : 'bg-white/70' }}"
+                    aria-label="Notifications, {{ $unreadCount }} unread">
+                    <x-ui.icon name="bell" class="h-5 w-5" />
+                    @if ($unreadCount > 0)
+                    <span class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-petal px-1 text-[11px] font-bold text-ink ring-2 ring-white">
+                        {{ $unreadCount > 99 ? '99+' : $unreadCount }}
+                    </span>
+                    @endif
+                </a>
+                @endif
+
                 {{-- Cart --}}
                 <a href="{{ route('cart') }}"
                     class="relative flex h-11 w-11 items-center justify-center rounded-full border border-blush bg-white/70 transition hover:bg-blush"

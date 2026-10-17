@@ -30,6 +30,11 @@ class NotificationService
             ->each(fn ($id) => $this->notifyUser($id, $title, $message, $type, $link));
     }
 
+    public function unreadCount(User $user): int
+    {
+        return $user->appNotifications()->where('is_read', false)->count();
+    }
+
     public function notifyLowStock(Product $product): void
     {
         if ($product->stock > config('floristsync.low_stock_threshold')) {

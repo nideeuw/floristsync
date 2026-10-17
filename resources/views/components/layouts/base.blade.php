@@ -13,6 +13,8 @@
 
 <body {{ $attributes->merge(['class' => 'bg-cream font-sans text-ink antialiased']) }}>
     {{ $slot }}
+
+    <x-ui.confirm-modal />
 </body>
 
 </html>

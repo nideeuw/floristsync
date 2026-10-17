@@ -30,14 +30,20 @@
                 <td class="text-right">
                     <div class="flex justify-end gap-2">
                         <form method="POST" action="{{ route('admin.orders.cancellations.approve', $order) }}"
-                            onsubmit="return confirm('Approve this cancellation? The payment will be refunded and the stock returned.')">
+                            data-confirm="The payment will be refunded and the stock returned."
+                            data-confirm-title="Approve this cancellation?"
+                            data-confirm-label="Approve"
+                            data-confirm-tone="primary">
                             @csrf
                             @method('PATCH')
                             <button class="btn-primary whitespace-nowrap">Approve</button>
                         </form>
 
                         <form method="POST" action="{{ route('admin.orders.cancellations.reject', $order) }}"
-                            onsubmit="return confirm('Reject this cancellation? The order will keep being processed.')">
+                            data-confirm="The order will keep being processed."
+                            data-confirm-title="Reject this cancellation?"
+                            data-confirm-label="Reject"
+                            data-confirm-tone="danger">
                             @csrf
                             @method('PATCH')
                             <button class="btn-outline whitespace-nowrap">Reject</button>

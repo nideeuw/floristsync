@@ -73,7 +73,11 @@
 
                     @if ($canCancel && blank($cancelState))
                     <form x-show="open" x-cloak method="POST" action="{{ route('track.cancel', $order) }}"
-                        onsubmit="return confirm('Cancel this order?')"
+                        data-confirm="You can not undo this. Do you want to continue?"
+                        data-confirm-title="Cancel this order?"
+                        data-confirm-label="Yes, cancel order"
+                        data-confirm-cancel-label="Keep order"
+                        data-confirm-tone="danger"
                         class="w-full space-y-2 border-t border-blush/80 pt-4">
                         @csrf
                         <input type="hidden" name="cancel_order_id" value="{{ $order->id }}">

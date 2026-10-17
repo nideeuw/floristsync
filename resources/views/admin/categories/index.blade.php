@@ -31,7 +31,10 @@
                 <td class="whitespace-nowrap text-right">
                     <a href="{{ route('admin.categories.edit', $category) }}" class="mr-3 font-semibold text-moss hover:underline">Edit</a>
                     <form method="POST" action="{{ route('admin.categories.toggle', $category) }}" class="inline"
-                        onsubmit="return confirm('{{ $category->is_active ? 'Deactivate' : 'Activate' }} this category?')">
+                        data-confirm="{{ $category->is_active ? 'Deactivate' : 'Activate' }} this category?"
+                        data-confirm-title="{{ $category->is_active ? 'Deactivate category' : 'Activate category' }}"
+                        data-confirm-label="{{ $category->is_active ? 'Deactivate' : 'Activate' }}"
+                        data-confirm-tone="{{ $category->is_active ? 'danger' : 'primary' }}">
                         @csrf
                         @method('PATCH')
                         <button class="{{ $category->is_active ? 'text-red-600' : 'text-moss' }} hover:underline">
