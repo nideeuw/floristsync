@@ -63,9 +63,8 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
     Route::get('/track/{transaction}/invoice', [TrackController::class, 'invoice'])
         ->middleware('menu.perm:track')->name('track.invoice');
 
-
-    Route::get('/track/{transaction}/pay', [CheckoutController::class, 'resume'])
-        ->middleware('menu.perm:track')->whereNumber('transaction')->name('track.pay');
+    Route::get('/track/{transaction}/pay', [TrackController::class, 'pay'])
+        ->middleware('menu.perm:track')->name('track.pay');
 
     Route::post('/track/{transaction}/cancel', [CancelOrderController::class, 'store'])
         ->middleware('menu.perm:track,edit')->name('track.cancel');

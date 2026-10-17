@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 class Transaction extends Model
 {
@@ -34,6 +35,8 @@ class Transaction extends Model
     public const CANCEL_APPROVED = 'approved';
 
     public const CANCEL_REJECTED = 'rejected';
+
+    public const PAYMENT_WINDOW_MINUTES = 60;
 
     protected $guarded = ['id'];
 
@@ -81,6 +84,21 @@ class Transaction extends Model
     public function isDelivery(): bool
     {
         return ! empty($this->courier);
+    }
+
+    public function paymentDeadline(): ?Carbon
+    {
+        return $this->created_on?->copy()->addMinutes(self::PAYMENT_WINDOW_MINUTES);
+    }
+
+    public function canResumePayment(): bool
+    {
+        $deadline = $this->paymentDeadline();
+
+        return $this->transaction_type === self::TYPE_ONLINE
+            && $this->status === self::PENDING_PAYMENT
+            && $deadline !== null
+            && $deadline->isFuture();
     }
 
     public function getFulfillmentAttribute(): string

@@ -125,6 +125,64 @@ class TransactionService
         return $transaction;
     }
 
+    public function resumePayment(Transaction $transaction): Transaction
+    {
+        $transaction->loadMissing('details.product', 'payment', 'user');
+
+        if (! $transaction->canResumePayment()) {
+            throw new DomainException('This order can no longer be paid. Please place a new order.');
+        }
+
+        $payment = $transaction->payment;
+
+        if (! $payment || ! $payment->midtrans_order_id) {
+            throw new DomainException('Payment data for this order was not found.');
+        }
+
+        $remote = $this->midtrans->getStatus($payment->midtrans_order_id);
+        $remoteStatus = $remote === null || (string) ($remote['status_code'] ?? '') === '404'
+            ? null
+            : ($remote['transaction_status'] ?? null);
+
+        if (in_array($remoteStatus, ['settlement', 'capture'], true) || in_array($remoteStatus, self::FAILED_STATUSES, true)) {
+            $this->updatePaymentStatus([
+                'order_id' => $payment->midtrans_order_id,
+                'transaction_status' => $remoteStatus,
+                'fraud_status' => $remote['fraud_status'] ?? null,
+                'payment_type' => $remote['payment_type'] ?? null,
+                'gross_amount' => $remote['gross_amount'] ?? null,
+            ]);
+
+            return $transaction->refresh();
+        }
+
+        if ($payment->snap_token) {
+            return $transaction;
+        }
+
+        if ($remoteStatus !== null) {
+            throw new DomainException('A payment for this order is already in progress. Please finish it with the payment method you chose.');
+        }
+
+        try {
+            $user = $transaction->user;
+
+            $token = $this->midtrans->createSnapToken($transaction, [
+                'name' => $user?->name,
+                'email' => $user?->email,
+                'phone' => $user?->getAttribute('phone'),
+            ]);
+
+            $payment->update(['snap_token' => $token]);
+        } catch (Throwable $e) {
+            Log::error('Snap token refresh failed for order #'.$transaction->id.': '.$e->getMessage());
+
+            throw new \RuntimeException('Payment could not be started right now. Please try again.', 0, $e);
+        }
+
+        return $transaction;
+    }
+
     public function updatePaymentStatus(array $notification): void
     {
         DB::transaction(function () use ($notification) {

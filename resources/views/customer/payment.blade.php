@@ -34,7 +34,7 @@
     </script>
 
     <div class="mx-auto max-w-2xl px-4 py-8 md:py-12"
-        x-data="payment(@json($snapToken), @json(route('track')))"
+        x-data="payment({{ \Illuminate\Support\Js::from($snapToken) }}, {{ \Illuminate\Support\Js::from(route('track')) }})"
         x-init="pay()">
         <x-page-header eyebrow="Secure payment" title="Payment" />
 
