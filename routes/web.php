@@ -60,6 +60,9 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
     Route::get('/track', [TrackController::class, 'index'])
         ->middleware('menu.perm:track')->name('track');
 
+    Route::get('/track/{transaction}/invoice', [TrackController::class, 'invoice'])
+        ->middleware('menu.perm:track')->name('track.invoice');
+
     Route::post('/track/{transaction}/cancel', [CancelOrderController::class, 'store'])
         ->middleware('menu.perm:track,edit')->name('track.cancel');
 
