@@ -2,8 +2,8 @@
     'title' => null,
     'subtitle' => null,
     'actions' => null,
-    'menus',
-    'user',
+    'menus' => collect(),
+    'user' => null,
     'home',
     'logout',
     'brand' => null,
@@ -130,34 +130,38 @@
                 @endif
 
                 <div class="ml-auto flex items-center gap-1 sm:gap-2">
-                    @if ($bell)
+                    @if ($bell && $user)
                         <x-nav.bell :href="$bell" :user="$user" />
                     @endif
 
-                    <div class="relative" x-data="{ open: false }" x-on:click.outside="open = false"
-                        x-on:keydown.escape="open = false">
-                        <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-haspopup="menu"
-                            class="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-cream/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage sm:pr-3">
-                            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-moss text-sm font-bold text-white">
-                                {{ mb_strtoupper(mb_substr($user->name, 0, 1)) }}
-                            </span>
-                            <span class="hidden text-left leading-tight sm:block">
-                                <span class="block max-w-32 truncate text-sm font-semibold">{{ $user->name }}</span>
-                                <span class="block text-xs text-ink/60">{{ str((string) $user->role?->role_name)->headline() }}</span>
-                            </span>
-                            <x-ui.icon name="chevron-down" class="hidden h-4 w-4 text-ink/50 sm:block" />
-                        </button>
+                    @if ($user)
+                        <div class="relative" x-data="{ open: false }" x-on:click.outside="open = false"
+                            x-on:keydown.escape="open = false">
+                            <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-haspopup="menu"
+                                class="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-cream/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage sm:pr-3">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-moss text-sm font-bold text-white">
+                                    {{ mb_strtoupper(mb_substr($user->name, 0, 1)) }}
+                                </span>
+                                <span class="hidden text-left leading-tight sm:block">
+                                    <span class="block max-w-32 truncate text-sm font-semibold">{{ $user->name }}</span>
+                                    <span class="block text-xs text-ink/60">{{ str((string) $user->role?->role_name)->headline() }}</span>
+                                </span>
+                                <x-ui.icon name="chevron-down" class="hidden h-4 w-4 text-ink/50 sm:block" />
+                            </button>
 
-                        <div x-show="open" x-cloak x-transition.origin.top.right
-                            class="absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-blush bg-white p-2 shadow-lg">
-                            <div class="px-3 py-2">
-                                <div class="truncate text-sm font-semibold">{{ $user->name }}</div>
-                                <div class="break-all text-xs text-ink/60">{{ $user->email }}</div>
+                            <div x-show="open" x-cloak x-transition.origin.top.right
+                                class="absolute right-0 z-50 mt-2 w-60 rounded-2xl border border-blush bg-white p-2 shadow-lg">
+                                <div class="px-3 py-2">
+                                    <div class="truncate text-sm font-semibold">{{ $user->name }}</div>
+                                    <div class="break-all text-xs text-ink/60">{{ $user->email }}</div>
+                                </div>
+                                <div class="my-1 border-t border-blush/70"></div>
+                                <x-nav.logout :action="$logout" class="w-full gap-3 rounded-xl px-3 py-2 text-sm text-ink transition-colors hover:bg-blush/50" />
                             </div>
-                            <div class="my-1 border-t border-blush/70"></div>
-                            <x-nav.logout :action="$logout" class="w-full gap-3 rounded-xl px-3 py-2 text-sm text-ink transition-colors hover:bg-blush/50" />
                         </div>
-                    </div>
+                    @else
+                        <a href="{{ $home }}" class="rounded-xl border border-blush bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-moss transition hover:bg-blush">Sign In</a>
+                    @endif
                 </div>
             </header>
 

@@ -14,32 +14,40 @@ class ShippingController extends Controller
 
     public function destinations(Request $request): JsonResponse
     {
-        $data = $request->validate(['q' => ['required', 'string', 'min:3', 'max:60']]);
+        try {
+            $data = $request->validate(['q' => ['required', 'string', 'min:3', 'max:60']]);
 
-        return $this->safely(
-            fn () => $this->shipping->searchDestination($data['q']),
-            'No destination found. Try another city or district name.'
-        );
+            return $this->safely(
+                fn () => $this->shipping->searchDestination($data['q']),
+                'No destination found. Try another city or district name.'
+            );
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage() ?: 'Failed to search destinations.'], 502);
+        }
     }
 
     public function cost(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'destination_id' => ['required', 'integer'],
-            'courier' => ['required', 'in:jne,tiki,pos,sicepat,jnt'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
-            'items.*.qty' => ['required', 'integer', 'min:1'],
-        ]);
+        try {
+            $data = $request->validate([
+                'destination_id' => ['required', 'integer'],
+                'courier' => ['required', 'in:jne,tiki,pos,sicepat,jnt'],
+                'items' => ['required', 'array', 'min:1'],
+                'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+                'items.*.qty' => ['required', 'integer', 'min:1'],
+            ]);
 
-        return $this->safely(
-            fn () => $this->shipping->calculateCost(
-                (int) $data['destination_id'],
-                $this->shipping->calculateWeight($data['items']),
-                $data['courier']
-            ),
-            'No shipping service is available for this courier and destination.'
-        );
+            return $this->safely(
+                fn () => $this->shipping->calculateCost(
+                    (int) $data['destination_id'],
+                    $this->shipping->calculateWeight($data['items']),
+                    $data['courier']
+                ),
+                'No shipping service is available for this courier and destination.'
+            );
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage() ?: 'Failed to calculate shipping cost.'], 502);
+        }
     }
 
     private function safely(callable $action, string $emptyMessage): JsonResponse
@@ -47,7 +55,7 @@ class ShippingController extends Controller
         try {
             $result = $action();
         } catch (RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 502);
+            return response()->json(['message' => $e->getMessage() ?: 'Shipping service unavailable.'], 502);
         }
 
         return response()->json(
