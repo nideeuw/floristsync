@@ -254,7 +254,8 @@ class TransactionService
             [Role::ADMIN_ORDER],
             'New paid order',
             "Order #{$transaction->id} has been paid and is ready to be processed.",
-            'new_order'
+            'new_order',
+            route('admin.orders.show', $transaction->id, false)
         );
 
         if ($transaction->user_id) {
@@ -262,7 +263,8 @@ class TransactionService
                 $transaction->user_id,
                 'Payment received',
                 "Your order #{$transaction->id} is being processed.",
-                'order_status'
+                'order_status',
+                route('track', ['order' => $transaction->order_number], false)
             );
         }
     }
@@ -281,7 +283,13 @@ class TransactionService
     private function notifyStatus(Transaction $transaction, string $message): void
     {
         if ($transaction->user_id) {
-            $this->notifications->notifyUser($transaction->user_id, 'Order update', $message, 'order_status');
+            $this->notifications->notifyUser(
+                $transaction->user_id,
+                'Order update',
+                $message,
+                'order_status',
+                route('track', ['order' => $transaction->order_number], false)
+            );
         }
     }
 

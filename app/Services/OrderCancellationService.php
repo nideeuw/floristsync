@@ -186,7 +186,13 @@ class OrderCancellationService
     private function notifyMember(Transaction $transaction, string $title, string $message): void
     {
         if ($transaction->user_id) {
-            $this->notifications->notifyUser($transaction->user_id, $title, $message, 'order_status');
+            $this->notifications->notifyUser(
+                $transaction->user_id,
+                $title,
+                $message,
+                'order_status',
+                route('track', ['order' => $transaction->order_number], false)
+            );
         }
     }
 

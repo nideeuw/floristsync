@@ -11,7 +11,7 @@ class NotificationController extends Controller
 {
     private const LAYOUTS = [
         'admin.' => 'staff-layout',
-        ''       => 'public-layout',
+        '' => 'public-layout',
     ];
 
     public function index(Request $request): View
@@ -29,12 +29,17 @@ class NotificationController extends Controller
 
     public function markRead(Request $request, int $notification): RedirectResponse
     {
-        $request->user()->appNotifications()
+        $item = $request->user()->appNotifications()
             ->whereKey($notification)
-            ->firstOrFail()
-            ->update(['is_read' => true]);
+            ->firstOrFail();
 
-        return back();
+        $item->update([
+            'is_read' => true,
+            'modified_by' => $request->user()->id,
+            'modified_on' => now(),
+        ]);
+
+        return $this->safeRedirect($request, $item->link);
     }
 
     public function markAllRead(Request $request): RedirectResponse
@@ -53,5 +58,37 @@ class NotificationController extends Controller
     private function prefix(Request $request): string
     {
         return Str::before((string) $request->route()?->getName(), 'notifications');
+    }
+
+    private function safeRedirect(Request $request, ?string $link): RedirectResponse
+    {
+        if (blank($link)) {
+            return back();
+        }
+
+        $link = trim((string) $link);
+
+        // Internal path starting with single slash (disallowing protocol-relative // or /\)
+        if (str_starts_with($link, '/') && ! str_starts_with($link, '//') && ! str_starts_with($link, '/\\')) {
+            return redirect()->to($link);
+        }
+
+        // Full URL: must be valid URL and match request host or configured APP_URL host
+        if (filter_var($link, FILTER_VALIDATE_URL)) {
+            $parsed = parse_url($link);
+            $scheme = strtolower($parsed['scheme'] ?? '');
+            $host = strtolower($parsed['host'] ?? '');
+
+            $allowedHosts = array_filter([
+                strtolower($request->getHost()),
+                strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST)),
+            ]);
+
+            if (in_array($scheme, ['http', 'https'], true) && in_array($host, $allowedHosts, true)) {
+                return redirect()->to($link);
+            }
+        }
+
+        return back();
     }
 }
