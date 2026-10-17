@@ -43,9 +43,12 @@ Route::middleware(['web', 'auth'])->group(function () {
     // POS cashier
     Route::middleware('role:cashier')->prefix('pos')->group(function () {
         Route::get('products', [PosController::class, 'products']);
+        Route::get('members', [PosController::class, 'members']);
+        Route::get('members/search', [PosController::class, 'members']);
         Route::post('transactions', [PosController::class, 'store']);
         Route::post('transactions/{transaction}/qris', [PosQrisController::class, 'store']);
         Route::get('transactions/{transaction}/qris', [PosQrisController::class, 'show']);
+        Route::delete('transactions/{transaction}/qris', [PosQrisController::class, 'destroy']);
     });
 
     // Orders

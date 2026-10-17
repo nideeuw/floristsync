@@ -58,11 +58,13 @@
                 </td>
                 <td class="whitespace-nowrap text-right">
                     <a href="{{ route('admin.products.edit', $product) }}" class="mr-3 font-semibold text-moss hover:underline">Edit</a>
-                    <form method="POST" action="{{ route('admin.products.destroy', $product) }}" class="inline"
-                        onsubmit="return confirm('Delete this product?')">
+                    <form method="POST" action="{{ route('admin.products.toggle', $product) }}" class="inline"
+                        onsubmit="return confirm('{{ $product->is_active ? 'Deactivate' : 'Activate' }} this product?')">
                         @csrf
-                        @method('DELETE')
-                        <button class="text-red-600 hover:underline">Delete</button>
+                        @method('PATCH')
+                        <button class="{{ $product->is_active ? 'text-red-600' : 'text-moss' }} hover:underline">
+                            {{ $product->is_active ? 'Deactivate' : 'Activate' }}
+                        </button>
                     </form>
                 </td>
             </tr>

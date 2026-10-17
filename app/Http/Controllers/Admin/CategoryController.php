@@ -52,14 +52,14 @@ class CategoryController extends Controller
         return redirect()->route('admin.categories.index')->with('success', 'Category updated.');
     }
 
-    public function destroy(Category $category): RedirectResponse
+    public function toggleActive(Category $category): RedirectResponse
     {
-        if ($category->products()->exists()) {
-            return back()->with('error', 'This category still has products. Deactivate it instead.');
+        if ($category->is_active && $category->products()->where('is_active', true)->exists()) {
+            return back()->with('error', 'This category still has active products. Deactivate them first.');
         }
 
-        $category->delete();
+        $category->update(['is_active' => ! $category->is_active]);
 
-        return redirect()->route('admin.categories.index')->with('success', 'Category deleted.');
+        return back()->with('success', $category->is_active ? 'Category activated.' : 'Category deactivated.');
     }
 }

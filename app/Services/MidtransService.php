@@ -7,6 +7,7 @@ use DomainException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Midtrans\Config;
+use Midtrans\CoreApi;
 use Midtrans\Notification;
 use Midtrans\Snap;
 use Midtrans\Transaction as MidtransApi;
@@ -26,9 +27,50 @@ class MidtransService
         Config::$is3ds = true;
     }
 
+    public function chargeQris(Transaction $transaction): array
+    {
+        $payment = $transaction->payment;
+        $orderId = $payment?->midtrans_order_id
+            ?? 'FS-POS-'.$transaction->id.'-'.strtoupper(Str::random(6));
+
+        if ($payment && ! $payment->midtrans_order_id) {
+            $payment->update(['midtrans_order_id' => $orderId]);
+        }
+
+        $items = $transaction->details->map(fn ($d) => [
+            'id' => (string) $d->product_id,
+            'price' => (int) $d->unit_price,
+            'quantity' => (int) $d->qty,
+            'name' => Str::limit($d->product?->product_name ?? 'Product', 50, ''),
+        ])->values()->all();
+
+        $params = [
+            'payment_type' => 'qris',
+            'transaction_details' => [
+                'order_id' => $orderId,
+                'gross_amount' => (int) $transaction->total,
+            ],
+            'qris' => [
+                'acquirer' => 'gopay',
+            ],
+        ];
+
+        if (! empty($items)) {
+            $params['item_details'] = $items;
+        }
+
+        try {
+            $response = CoreApi::charge($params);
+
+            return json_decode(json_encode($response), true);
+        } catch (Throwable $e) {
+            throw $this->toDomainException($e);
+        }
+    }
+
     public function createSnapToken(Transaction $transaction, array $customer = []): string
     {
-        $items = $transaction->details->map(fn($d) => [
+        $items = $transaction->details->map(fn ($d) => [
             'id' => (string) $d->product_id,
             'price' => (int) $d->unit_price,
             'quantity' => (int) $d->qty,
@@ -68,7 +110,7 @@ class MidtransService
             throw new DomainException('Invalid Midtrans notification signature.');
         }
 
-        $raw = (array) (new Notification())->getResponse();
+        $raw = (array) (new Notification)->getResponse();
 
         return [
             'order_id' => $raw['order_id'],

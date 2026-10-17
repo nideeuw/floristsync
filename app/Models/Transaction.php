@@ -13,21 +13,30 @@ class Transaction extends Model
 {
     use HasAuditColumns;
 
-    public const TYPE_POS    = 'pos';
+    public const TYPE_POS = 'pos';
+
     public const TYPE_ONLINE = 'online';
 
-    public const PENDING_PAYMENT  = 'pending_payment';
-    public const PROCESSING       = 'processing';
-    public const READY_FOR_PICKUP = 'ready_for_pickup';
-    public const SHIPPED          = 'shipped';
-    public const COMPLETED        = 'completed';
-    public const CANCELLED        = 'cancelled';
+    public const PENDING_PAYMENT = 'pending_payment';
 
-    public const CANCEL_PENDING  = 'pending';
+    public const PROCESSING = 'processing';
+
+    public const READY_FOR_PICKUP = 'ready_for_pickup';
+
+    public const SHIPPED = 'shipped';
+
+    public const COMPLETED = 'completed';
+
+    public const CANCELLED = 'cancelled';
+
+    public const CANCEL_PENDING = 'pending';
+
     public const CANCEL_APPROVED = 'approved';
+
     public const CANCEL_REJECTED = 'rejected';
 
     protected $guarded = ['id'];
+
     protected $casts = [
         'is_active' => 'boolean',
         'cancelled_at' => 'datetime',
@@ -86,11 +95,20 @@ class Transaction extends Model
     public function getOrderNumberAttribute(): string
     {
         return $this->payment?->midtrans_order_id
-            ?? 'POS-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+            ?? 'POS-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
     }
 
     public function scopeSuccessful(Builder $query): Builder
     {
         return $query->whereNotIn('status', [self::PENDING_PAYMENT, self::CANCELLED]);
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        if (is_numeric($value)) {
+            return $this->where('id', $value)->first();
+        }
+
+        return $this->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $value))->first();
     }
 }

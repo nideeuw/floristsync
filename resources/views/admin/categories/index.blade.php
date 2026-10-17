@@ -30,11 +30,13 @@
                 </td>
                 <td class="whitespace-nowrap text-right">
                     <a href="{{ route('admin.categories.edit', $category) }}" class="mr-3 font-semibold text-moss hover:underline">Edit</a>
-                    <form method="POST" action="{{ route('admin.categories.destroy', $category) }}" class="inline"
-                        onsubmit="return confirm('Delete this category?')">
+                    <form method="POST" action="{{ route('admin.categories.toggle', $category) }}" class="inline"
+                        onsubmit="return confirm('{{ $category->is_active ? 'Deactivate' : 'Activate' }} this category?')">
                         @csrf
-                        @method('DELETE')
-                        <button class="text-red-600 hover:underline">Delete</button>
+                        @method('PATCH')
+                        <button class="{{ $category->is_active ? 'text-red-600' : 'text-moss' }} hover:underline">
+                            {{ $category->is_active ? 'Deactivate' : 'Activate' }}
+                        </button>
                     </form>
                 </td>
             </tr>

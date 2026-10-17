@@ -38,9 +38,16 @@
                     <div class="text-xs font-semibold uppercase tracking-[0.2em] text-moss">Order number</div>
                     <div class="mt-1 font-mono text-lg font-semibold">{{ $selected->order_number }}</div>
                 </div>
-                <div class="text-right">
-                    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-moss">Total</div>
-                    <div class="mt-1 text-2xl font-bold text-moss">{{ rupiah($selected->total) }}</div>
+                <div class="flex flex-wrap items-center gap-4">
+                    <a href="{{ route('track.invoice', $selected) }}" target="_blank"
+                        class="btn-outline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold">
+                        <x-ui.icon name="printer" class="h-4 w-4" />
+                        <span>Print invoice</span>
+                    </a>
+                    <div class="text-right">
+                        <div class="text-xs font-semibold uppercase tracking-[0.2em] text-moss">Total</div>
+                        <div class="mt-1 text-2xl font-bold text-moss">{{ rupiah($selected->total) }}</div>
+                    </div>
                 </div>
             </div>
 

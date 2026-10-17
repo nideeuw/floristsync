@@ -60,7 +60,10 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
     Route::get('/track', [TrackController::class, 'index'])
         ->middleware('menu.perm:track')->name('track');
 
-    
+    Route::get('/track/{transaction}/invoice', [TrackController::class, 'invoice'])
+        ->middleware('menu.perm:track')->name('track.invoice');
+
+
     Route::get('/track/{transaction}/pay', [CheckoutController::class, 'resume'])
         ->middleware('menu.perm:track')->whereNumber('transaction')->name('track.pay');
 
@@ -129,12 +132,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // ---- Inventory ----
         Route::middleware('menu.perm:admin.products.index')->group(function () {
-            Route::resource('products', AdminProductController::class)->except('show');
+            Route::resource('products', AdminProductController::class)->except(['show', 'destroy']);
             Route::patch('products/{product}/stock', [AdminProductController::class, 'adjustStock'])->name('products.stock');
+            Route::patch('products/{product}/toggle', [AdminProductController::class, 'toggleActive'])->name('products.toggle');
         });
 
         Route::middleware('menu.perm:admin.categories.index')->group(function () {
-            Route::resource('categories', CategoryController::class)->except('show');
+            Route::resource('categories', CategoryController::class)->except(['show', 'destroy']);
+            Route::patch('categories/{category}/toggle', [CategoryController::class, 'toggleActive'])->name('categories.toggle');
         });
 
         Route::get('stock', [StockController::class, 'index'])
@@ -193,9 +198,10 @@ Route::prefix('pos')->name('cashier.')->group(function () {
         Route::get('/', [PosController::class, 'index'])
             ->middleware('menu.perm:cashier.pos')->name('pos');
 
+        Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
+
         Route::middleware('menu.perm:cashier.history')->group(function () {
             Route::get('history', [TransactionController::class, 'index'])->name('history');
-            Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
         });
 
         Route::middleware('menu.perm:cashier.cancel')->group(function () {

@@ -27,9 +27,15 @@ class TransactionService
         private ShiftService $shifts,
     ) {}
 
-    public function createPosTransaction(array $items, int $cashierId, string $paymentMethod, int $paidAmount = 0): Transaction
-    {
-        return DB::transaction(function () use ($items, $cashierId, $paymentMethod, $paidAmount) {
+    public function createPosTransaction(
+        array $items,
+        int $cashierId,
+        string $paymentMethod,
+        int $paidAmount = 0,
+        ?int $userId = null,
+        ?string $notes = null
+    ): Transaction {
+        return DB::transaction(function () use ($items, $cashierId, $paymentMethod, $paidAmount, $userId, $notes) {
             [$rows, $subtotal] = $this->prepareItems($items);
 
             if ($paymentMethod === 'cash' && $paidAmount < $subtotal) {
@@ -39,11 +45,15 @@ class TransactionService
             $cashier = User::find($cashierId);
             $shift = $cashier ? $this->shifts->current($cashier) : null;
 
+            $isQris = $paymentMethod === 'qris';
+
             $transaction = Transaction::create([
+                'user_id' => $userId,
                 'cashier_id' => $cashierId,
                 'shift_id' => $shift?->id,
                 'transaction_type' => Transaction::TYPE_POS,
-                'status' => Transaction::COMPLETED,
+                'status' => $isQris ? Transaction::PENDING_PAYMENT : Transaction::COMPLETED,
+                'notes' => $notes,
                 'total' => $subtotal,
             ]);
 
@@ -51,13 +61,14 @@ class TransactionService
 
             Payment::create([
                 'transaction_id' => $transaction->id,
+                'midtrans_order_id' => $isQris ? 'FS-POS-'.$transaction->id.'-'.strtoupper(Str::random(6)) : null,
                 'payment_method' => $paymentMethod,
-                'payment_status' => 'settlement',
+                'payment_status' => $isQris ? 'pending' : 'settlement',
                 'amount' => $subtotal,
-                'payment_date' => now(),
+                'payment_date' => $isQris ? null : now(),
             ]);
 
-            return $transaction->load('details.product', 'payment');
+            return $transaction->load('details.product', 'payment', 'user');
         });
     }
 
@@ -165,7 +176,7 @@ class TransactionService
             $remoteOrderId = null;
 
             if ($payment && $payment->payment_status === 'pending') {
-                if ($payment->snap_token) {
+                if ($payment->snap_token || $payment->midtrans_order_id) {
                     $remoteOrderId = $payment->midtrans_order_id;
                 }
 
@@ -243,7 +254,8 @@ class TransactionService
             [Role::ADMIN_ORDER],
             'New paid order',
             "Order #{$transaction->id} has been paid and is ready to be processed.",
-            'new_order'
+            'new_order',
+            route('admin.orders.show', $transaction->id, false)
         );
 
         if ($transaction->user_id) {
@@ -251,7 +263,8 @@ class TransactionService
                 $transaction->user_id,
                 'Payment received',
                 "Your order #{$transaction->id} is being processed.",
-                'order_status'
+                'order_status',
+                route('track', ['order' => $transaction->order_number], false)
             );
         }
     }
@@ -270,7 +283,13 @@ class TransactionService
     private function notifyStatus(Transaction $transaction, string $message): void
     {
         if ($transaction->user_id) {
-            $this->notifications->notifyUser($transaction->user_id, 'Order update', $message, 'order_status');
+            $this->notifications->notifyUser(
+                $transaction->user_id,
+                'Order update',
+                $message,
+                'order_status',
+                route('track', ['order' => $transaction->order_number], false)
+            );
         }
     }
 
