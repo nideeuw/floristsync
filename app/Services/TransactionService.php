@@ -220,7 +220,7 @@ class TransactionService
         return $transaction;
     }
 
-    private function isPaid(array $notification): bool
+    public function isPaid(array $notification): bool
     {
         $status = $notification['transaction_status'];
 
