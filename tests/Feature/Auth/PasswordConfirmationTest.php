@@ -3,12 +3,20 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Database\Seeders\RolesMenusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PasswordConfirmationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RolesMenusSeeder::class);
+    }
 
     public function test_confirm_password_screen_can_be_rendered(): void
     {

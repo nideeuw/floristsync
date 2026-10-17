@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasAuditColumns;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,7 +13,7 @@ use Illuminate\Support\Carbon;
 
 class Transaction extends Model
 {
-    use HasAuditColumns;
+    use HasAuditColumns, HasFactory;
 
     public const TYPE_POS = 'pos';
 

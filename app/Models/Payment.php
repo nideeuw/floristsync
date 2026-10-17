@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasAuditColumns;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Payment extends Model
 {
-    use HasAuditColumns;
+    use HasAuditColumns, HasFactory;
 
     protected $guarded = ['id'];
     protected $casts = ['is_active' => 'boolean', 'payment_date' => 'datetime'];
