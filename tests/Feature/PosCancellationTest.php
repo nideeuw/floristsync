@@ -127,6 +127,28 @@ class PosCancellationTest extends TestCase
         $service->cancel($onlineTx, $this->cashier, 'Wrong transaction');
     }
 
+    public function test_cashier_cannot_cancel_sale_of_another_cashier(): void
+    {
+        $otherCashier = User::factory()->create([
+            'role_id' => $this->cashierRole->id,
+            'is_active' => true,
+        ]);
+        $otherTx = $this->createPosTransaction($otherCashier, 1, Transaction::COMPLETED);
+
+        $response = $this->actingAs($this->cashier)->post(route('cashier.cancel.store', $otherTx), [
+            'reason' => 'Attempt to cancel colleague sale',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error', 'You can only cancel your own transactions.');
+        $this->assertSame(Transaction::COMPLETED, $otherTx->fresh()->status);
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('You can only cancel your own transactions.');
+
+        app(PosCancellationService::class)->cancel($otherTx, $this->cashier, 'Attempt to cancel colleague sale');
+    }
+
     public function test_service_rejects_non_completed_transaction(): void
     {
         $pendingTx = Transaction::create([

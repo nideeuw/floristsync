@@ -28,6 +28,10 @@ class PosCancellationService
                 throw new DomainException('Only POS transactions can be cancelled.');
             }
 
+            if ((int) $locked->cashier_id !== (int) $cashier->id) {
+                throw new DomainException('You can only cancel your own transactions.');
+            }
+
             if ($locked->status !== Transaction::COMPLETED) {
                 if ($locked->status === Transaction::CANCELLED) {
                     throw new DomainException('This transaction has already been cancelled.');
