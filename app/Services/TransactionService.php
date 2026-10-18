@@ -164,8 +164,6 @@ class TransactionService
             throw new DomainException('A payment for this order is already in progress. Please finish it with the payment method you chose.');
         }
 
-        dump(DB::table('notifications')->where('title', 'Late payment refunded')->get(['id', 'user_id', 'message']));
-        
         try {
             $user = $transaction->user;
 
