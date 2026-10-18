@@ -213,6 +213,29 @@ class PosMemberNoteTest extends TestCase
         $response->assertJson(['message' => 'The selected customer must be a member.']);
     }
 
+    public function test_cannot_attach_inactive_member_as_user_id(): void
+    {
+        $inactiveMember = User::factory()->create([
+            'name' => 'Inactive Member',
+            'role_id' => $this->memberRole->id,
+            'is_active' => false,
+        ]);
+
+        $payload = [
+            'items' => [
+                ['product_id' => $this->product->id, 'qty' => 1],
+            ],
+            'payment_method' => 'cash',
+            'paid_amount' => 50000,
+            'user_id' => $inactiveMember->id,
+        ];
+
+        $response = $this->actingAs($this->cashier)->postJson('/api/pos/transactions', $payload);
+
+        $response->assertStatus(422);
+        $response->assertJson(['message' => 'The selected customer must be a member.']);
+    }
+
     public function test_attached_pos_sale_shows_in_member_order_history(): void
     {
         // 1. Create a sale attached to member1

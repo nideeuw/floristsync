@@ -96,6 +96,7 @@ class PosController extends Controller
         if ($userId !== null) {
             $isMember = User::whereKey($userId)
                 ->whereHas('role', fn ($r) => $r->where('role_name', Role::MEMBER))
+                ->where('is_active', true)
                 ->exists();
 
             if (! $isMember) {
