@@ -164,8 +164,6 @@ class TransactionService
             throw new DomainException('A payment for this order is already in progress. Please finish it with the payment method you chose.');
         }
 
-        dump(DB::table('notifications')->where('title', 'Late payment refunded')->get(['id', 'user_id', 'message']));
-        
         try {
             $user = $transaction->user;
 
@@ -264,6 +262,27 @@ class TransactionService
         $this->notifyStatus($transaction, "Your order #{$transaction->id} has been shipped. Tracking number: {$trackingNumber}.");
 
         return $transaction;
+    }
+
+    /**
+     * Next statuses an online order may be moved to by hand.
+     * Pickup: processing -> ready_for_pickup -> completed.
+     * Delivery: processing -> shipped (tracking number) -> completed.
+     * Used by both the web and the api order controllers.
+     *
+     * @return array<int, string>
+     */
+    public function allowedNextStatuses(Transaction $transaction): array
+    {
+        if ($transaction->transaction_type !== Transaction::TYPE_ONLINE) {
+            return [];
+        }
+
+        return match (true) {
+            $transaction->status === Transaction::PROCESSING && ! $transaction->isDelivery() => [Transaction::READY_FOR_PICKUP],
+            in_array($transaction->status, [Transaction::READY_FOR_PICKUP, Transaction::SHIPPED], true) => [Transaction::COMPLETED],
+            default => [],
+        };
     }
 
     public function changeStatus(Transaction $transaction, string $newStatus): Transaction
