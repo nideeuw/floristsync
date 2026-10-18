@@ -58,11 +58,7 @@ class OrderController extends Controller
     {
         $this->ensureOnline($transaction);
 
-        $allowed = match (true) {
-            $transaction->status === Transaction::PROCESSING && ! $transaction->isDelivery() => [Transaction::READY_FOR_PICKUP],
-            in_array($transaction->status, [Transaction::READY_FOR_PICKUP, Transaction::SHIPPED], true) => [Transaction::COMPLETED],
-            default => [],
-        };
+        $allowed = $this->service->allowedNextStatuses($transaction);
 
         $data = $request->validate(['status' => ['required', Rule::in($allowed)]]);
 
