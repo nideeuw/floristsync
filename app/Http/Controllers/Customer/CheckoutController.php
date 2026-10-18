@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Services\CartService;
-use App\Services\PaymentResumeService;
 use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -85,24 +84,6 @@ class CheckoutController extends Controller
         $this->cart->clear();
 
         return $this->paymentView($transaction, $transaction->payment->snap_token);
-    }
-
-    /** "Pay now" from the order history: reopen the Snap payment page of an unpaid order. */
-    public function resume(Request $request, Transaction $transaction, PaymentResumeService $resume): View|RedirectResponse
-    {
-        abort_unless(
-            $transaction->transaction_type === Transaction::TYPE_ONLINE
-                && (int) $transaction->user_id === (int) $request->user()->id,
-            404
-        );
-
-        try {
-            $token = $resume->snapTokenFor($transaction, $request->user());
-        } catch (DomainException|RuntimeException $e) {
-            return redirect()->route('track')->with('error', $e->getMessage());
-        }
-
-        return $this->paymentView($transaction, $token);
     }
 
     private function paymentView(Transaction $transaction, string $snapToken): View
