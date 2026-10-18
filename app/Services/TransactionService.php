@@ -264,6 +264,27 @@ class TransactionService
         return $transaction;
     }
 
+    /**
+     * Next statuses an online order may be moved to by hand.
+     * Pickup: processing -> ready_for_pickup -> completed.
+     * Delivery: processing -> shipped (tracking number) -> completed.
+     * Used by both the web and the api order controllers.
+     *
+     * @return array<int, string>
+     */
+    public function allowedNextStatuses(Transaction $transaction): array
+    {
+        if ($transaction->transaction_type !== Transaction::TYPE_ONLINE) {
+            return [];
+        }
+
+        return match (true) {
+            $transaction->status === Transaction::PROCESSING && ! $transaction->isDelivery() => [Transaction::READY_FOR_PICKUP],
+            in_array($transaction->status, [Transaction::READY_FOR_PICKUP, Transaction::SHIPPED], true) => [Transaction::COMPLETED],
+            default => [],
+        };
+    }
+
     public function changeStatus(Transaction $transaction, string $newStatus): Transaction
     {
         if ($transaction->transaction_type !== Transaction::TYPE_ONLINE || in_array($transaction->status, [Transaction::PENDING_PAYMENT, Transaction::CANCELLED], true)) {

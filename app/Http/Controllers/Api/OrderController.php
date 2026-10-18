@@ -101,6 +101,13 @@ class OrderController extends Controller
             ])],
         ]);
 
+        if (! in_array($data['status'], $this->service->allowedNextStatuses($transaction), true)) {
+            $from = str_replace('_', ' ', $transaction->status);
+            $to = str_replace('_', ' ', $data['status']);
+
+            return response()->json(['message' => "This order cannot be moved from {$from} to {$to}."], 422);
+        }
+
         try {
             $this->service->changeStatus($transaction, $data['status']);
         } catch (DomainException $e) {
