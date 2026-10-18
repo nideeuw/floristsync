@@ -94,6 +94,54 @@ class OrderCancellationService
         return $transaction->refresh();
     }
 
+    public function cancel(Transaction $transaction, User $admin, string $reason): Transaction
+    {
+        $reason = trim($reason);
+
+        if ($reason === '') {
+            throw new DomainException('Cancellation reason is required.');
+        }
+
+        DB::transaction(function () use ($transaction, $admin, $reason) {
+            $locked = Transaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->transaction_type !== Transaction::TYPE_ONLINE) {
+                throw new DomainException('Only online orders can be cancelled.');
+            }
+
+            if ($locked->status !== Transaction::PROCESSING) {
+                if ($locked->status === Transaction::CANCELLED) {
+                    throw new DomainException('This order has already been cancelled.');
+                }
+
+                throw new DomainException('Only orders in processing can be cancelled.');
+            }
+
+            $this->reversal->refund($locked);
+
+            foreach ($locked->details()->with('product')->get() as $detail) {
+                if ($detail->product) {
+                    $this->inventory->add($detail->product, $detail->qty, 'cancel', "Order #{$locked->id} cancelled");
+                }
+            }
+
+            $locked->update([
+                'status' => Transaction::CANCELLED,
+                'cancelled_by' => $admin->id,
+                'cancelled_at' => now(),
+                'cancel_reason' => $reason,
+            ]);
+        });
+
+        $this->notifyMember(
+            $transaction,
+            'Order cancelled',
+            "Your order #{$transaction->id} was cancelled by the store. Reason: {$reason}. The payment has been refunded."
+        );
+
+        return $transaction->refresh();
+    }
+
     private function cancelUnpaid(Transaction $transaction, User $member, string $reason): void
     {
         $this->reversal->cancelInvoice($transaction);
