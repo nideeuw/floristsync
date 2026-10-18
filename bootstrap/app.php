@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\MenuPermissionMiddleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\ThrottleLoginRequests;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -35,6 +36,9 @@ return Application::configure(basePath: dirname(__DIR__))
             $request->is('pos', 'pos/*') => route('cashier.login'),
             default => route('login'),
         });
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('orders:expire-pending')->everyFiveMinutes();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
