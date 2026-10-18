@@ -27,7 +27,7 @@ class OrderCancellationController extends Controller
     {
         try {
             $this->service->approve($transaction, $request->user());
-        } catch (DomainException | RuntimeException $e) {
+        } catch (DomainException|RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
@@ -43,5 +43,20 @@ class OrderCancellationController extends Controller
         }
 
         return back()->with('success', 'Cancellation request rejected. The order stays in processing.');
+    }
+
+    public function cancel(Request $request, Transaction $transaction): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $this->service->cancel($transaction, $request->user(), $data['reason']);
+        } catch (DomainException|RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Order cancelled. The stock was returned and payment refunded.');
     }
 }

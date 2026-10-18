@@ -128,6 +128,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.approve');
         Route::patch('order-cancellations/{transaction}/reject', [OrderCancellationController::class, 'reject'])
             ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.reject');
+        Route::patch('order-cancellations/{transaction}/cancel', [OrderCancellationController::class, 'cancel'])
+            ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.cancel');
 
         // ---- Inventory ----
         Route::middleware('menu.perm:admin.products.index')->group(function () {
