@@ -82,10 +82,25 @@ class PaymentReversalService
         }
 
         if ($remoteStatus === 'capture' && ($remote['fraud_status'] ?? null) === 'accept') {
-            $this->midtrans->cancelTransaction($orderId);
-            $payment->update(['payment_status' => 'cancel']);
+            // A captured card payment is voided while it is not settled yet.
+            try {
+                $this->midtrans->cancelTransaction($orderId);
+            } catch (DomainException $e) {
+                // The void was refused. If the payment settled in the meantime, it needs a refund instead.
+                $remote = $this->midtrans->getStatus($orderId);
 
-            return;
+                if (($remote['transaction_status'] ?? null) !== 'settlement') {
+                    throw $e;
+                }
+
+                $remoteStatus = 'settlement';
+            }
+
+            if ($remoteStatus === 'capture') {
+                $payment->update(['payment_status' => 'cancel']);
+
+                return;
+            }
         }
 
         if ($remoteStatus !== 'settlement') {
