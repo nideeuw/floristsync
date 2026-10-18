@@ -164,6 +164,8 @@ class TransactionService
             throw new DomainException('A payment for this order is already in progress. Please finish it with the payment method you chose.');
         }
 
+        dump(DB::table('notifications')->where('title', 'Late payment refunded')->get(['id', 'user_id', 'message']));
+        
         try {
             $user = $transaction->user;
 
@@ -289,7 +291,9 @@ class TransactionService
     private function markPaid(Payment $payment, Transaction $transaction): void
     {
         if ($transaction->status === Transaction::CANCELLED) {
-            Log::warning("Payment {$payment->midtrans_order_id} was paid after order #{$transaction->id} was cancelled. Manual refund needed.");
+            Log::warning("Payment {$payment->midtrans_order_id} was paid after order #{$transaction->id} was cancelled.");
+
+            $this->refundLatePayment($transaction);
 
             return;
         }
@@ -325,6 +329,56 @@ class TransactionService
                 route('track', ['order' => $transaction->order_number], false)
             );
         }
+    }
+
+    private function refundLatePayment(Transaction $transaction): void
+    {
+        // Reload the payment: updatePaymentStatus has just changed it.
+        $transaction->load('payment');
+
+        $reason = null;
+
+        try {
+            app(PaymentReversalService::class)->refund($transaction);
+        } catch (DomainException $e) {
+            $reason = $e->getMessage();
+        }
+
+        if ($reason === null) {
+            Log::info("Late payment of order #{$transaction->id} was returned to the customer through Midtrans.");
+
+            $title = 'Late payment refunded';
+            $message = "Order #{$transaction->id} was paid after it was cancelled. The payment was returned to the customer through Midtrans.";
+        } else {
+            Log::error("Refund of the late payment of order #{$transaction->id} failed: {$reason}");
+
+            $title = 'Late payment needs a refund';
+            $message = "Order #{$transaction->id} was paid after it was cancelled, but the refund failed ({$reason}). Please check it in the Midtrans dashboard.";
+        }
+
+        // A problem with the notification must not fail the webhook.
+        try {
+            $this->notifyLatePayment($transaction, $title, $message);
+        } catch (Throwable $e) {
+            Log::error("Late payment notification for order #{$transaction->id} failed: {$e->getMessage()}");
+        }
+    }
+
+    private function notifyLatePayment(Transaction $transaction, string $title, string $message): void
+    {
+        // Midtrans can send the same notification again, so the same text is only sent once.
+        if (\App\Models\AppNotification::where('title', $title)->where('message', $message)->exists()) {
+            return;
+        }
+
+        $arguments = [[Role::ADMIN_ORDER], $title, $message, 'order_status'];
+
+        // POS sales have no page in the admin order area, so only online orders get a link.
+        if ($transaction->transaction_type === Transaction::TYPE_ONLINE) {
+            $arguments[] = route('admin.orders.show', $transaction->id, false);
+        }
+
+        $this->notifications->notifyRoles(...$arguments);
     }
 
     private function assertAmountMatches(Payment $payment, array $notification): void
