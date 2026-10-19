@@ -17,7 +17,7 @@ class MidtransService
 {
     private const ENABLED_PAYMENTS = ['credit_card', 'gopay', 'shopeepay', 'other_qris'];
 
-    private const PAYMENT_WINDOW_MINUTES = Transaction::PAYMENT_WINDOW_MINUTES;
+    public const PAYMENT_WINDOW_MINUTES = Transaction::PAYMENT_WINDOW_MINUTES;
 
     public function __construct()
     {
