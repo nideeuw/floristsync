@@ -19,12 +19,37 @@ class CheckoutController extends Controller
         private TransactionService $transactions,
     ) {}
 
-    public function index(): View|RedirectResponse
+    public function index(Request $request): View|RedirectResponse
     {
-        $items = $this->cart->items();
+        $rawCart = $this->cart->raw();
+
+        if (empty($rawCart)) {
+            return redirect()->route('cart')->with('error', 'Your cart is empty.');
+        }
+
+        $selectedParam = $request->input('selected', $request->input('items'));
+
+        if ($selectedParam === null) {
+            return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
+        }
+
+        $selectedIds = is_array($selectedParam) ? $selectedParam : array_filter(explode(',', (string) $selectedParam));
+        $selectedIds = array_values(array_filter(array_map('intval', $selectedIds)));
+
+        if (empty($selectedIds)) {
+            return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
+        }
+
+        foreach ($selectedIds as $id) {
+            if (! array_key_exists($id, $rawCart)) {
+                return redirect()->route('cart')->with('error', 'One or more selected items are not in your cart.');
+            }
+        }
+
+        $items = $this->cart->items($selectedIds);
 
         if ($items->isEmpty()) {
-            return redirect()->route('cart')->with('error', 'Your cart is empty.');
+            return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
         }
 
         return view('customer.checkout', [
@@ -45,12 +70,37 @@ class CheckoutController extends Controller
             'courier' => ['required_if:fulfillment,delivery', 'nullable', 'in:jne,tiki,pos,sicepat,jnt'],
             'service' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'selected' => ['nullable'],
         ]);
 
-        $items = $this->cart->items();
+        $rawCart = $this->cart->raw();
+
+        if (empty($rawCart)) {
+            return redirect()->route('cart')->with('error', 'Your cart is empty.');
+        }
+
+        if ($request->has('selected') || $request->has('items')) {
+            $selectedParam = $request->input('selected', $request->input('items'));
+            $selectedIds = is_array($selectedParam) ? $selectedParam : array_filter(explode(',', (string) $selectedParam));
+            $selectedIds = array_values(array_filter(array_map('intval', $selectedIds)));
+
+            if (empty($selectedIds)) {
+                return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
+            }
+
+            foreach ($selectedIds as $id) {
+                if (! array_key_exists($id, $rawCart)) {
+                    return redirect()->route('cart')->with('error', 'One or more selected items are not in your cart.');
+                }
+            }
+
+            $items = $this->cart->items($selectedIds);
+        } else {
+            $items = $this->cart->items();
+        }
 
         if ($items->isEmpty()) {
-            return redirect()->route('cart')->with('error', 'Your cart is empty.');
+            return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
         }
 
         $lines = $items
@@ -81,7 +131,9 @@ class CheckoutController extends Controller
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        $this->cart->clear();
+        // Remove only the ordered items from the cart; unselected items stay
+        $orderedIds = collect($lines)->pluck('product_id')->all();
+        $this->cart->removeMany($orderedIds);
 
         return $this->paymentView($transaction, $transaction->payment->snap_token);
     }

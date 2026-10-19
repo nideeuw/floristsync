@@ -1,5 +1,15 @@
 <x-public-layout title="Cart">
-    <div class="mx-auto max-w-7xl px-4 py-8 md:py-12">
+    @php
+        $jsItems = $items->map(fn ($item) => [
+            'id' => (int) $item->product->id,
+            'subtotal' => (int) $item->subtotal,
+            'price' => (int) $item->product->price,
+            'qty' => (int) $item->qty,
+        ])->values();
+    @endphp
+
+    <div class="mx-auto max-w-7xl px-4 py-8 md:py-12"
+        x-data="cartView({{ Js::from($jsItems) }})">
         <x-page-header eyebrow="Your selection" title="Your cart" />
 
         @if ($items->isEmpty())
@@ -11,8 +21,29 @@
         <div class="mt-10 grid gap-8 lg:grid-cols-3">
             {{-- Items --}}
             <div class="space-y-4 lg:col-span-2">
+                {{-- Select-all bar --}}
+                <div class="flex items-center justify-between rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-blush/60 sm:p-5">
+                    <label class="flex cursor-pointer items-center gap-3 select-none">
+                        <input type="checkbox" :checked="allSelected" @change="toggleAll()"
+                            class="h-5 w-5 rounded border-blush text-moss focus:ring-sage accent-moss">
+                        <span class="text-sm font-semibold">
+                            Select all (<span x-text="selected.length"></span>/<span x-text="items.length"></span>)
+                        </span>
+                    </label>
+                    <span class="text-xs text-ink/50" x-show="selected.length > 0" x-cloak>
+                        <span x-text="selected.length"></span> item(s) selected
+                    </span>
+                </div>
+
                 @foreach ($items as $item)
-                <div class="flex gap-4 rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-blush/60 sm:gap-5 sm:p-5">
+                <div class="flex items-center gap-3 rounded-[2rem] bg-white p-4 shadow-sm ring-1 ring-blush/60 sm:gap-5 sm:p-5">
+                    {{-- Checkbox per item --}}
+                    <label class="flex shrink-0 cursor-pointer items-center pr-1 select-none">
+                        <input type="checkbox" :value="{{ $item->product->id }}" x-model.number="selected"
+                            class="h-5 w-5 rounded border-blush text-moss focus:ring-sage accent-moss"
+                            aria-label="Select {{ $item->product->product_name }}">
+                    </label>
+
                     <a href="{{ route('products.show', $item->product) }}" class="shrink-0">
                         <x-product-image :product="$item->product" class="h-24 w-24 rounded-2xl sm:h-32 sm:w-32" />
                     </a>
@@ -66,28 +97,38 @@
 
                     <div class="mt-5 flex justify-between text-sm">
                         <span class="text-ink/70">Subtotal</span>
-                        <span class="font-semibold">{{ rupiah($subtotal) }}</span>
+                        <span class="font-semibold" x-text="rupiah(selectedSubtotal)">{{ rupiah($subtotal) }}</span>
                     </div>
                     <p class="mt-1 text-xs text-ink/50">Shipping is calculated at checkout.</p>
 
                     <div class="mt-5 flex items-end justify-between border-t border-blush/80 pt-5">
                         <span class="font-semibold">Total</span>
-                        <span class="text-2xl font-bold text-moss">{{ rupiah($subtotal) }}</span>
+                        <span class="text-2xl font-bold text-moss" x-text="rupiah(selectedSubtotal)">{{ rupiah($subtotal) }}</span>
                     </div>
 
-                    @auth
-                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full py-3.5 text-base">
-                        Proceed to checkout
-                        <x-ui.icon name="arrow-right" class="h-4 w-4" />
-                    </a>
-                    @else
-                    <a href="{{ route('checkout') }}" class="btn-primary mt-6 w-full py-3.5 text-base">Log in to checkout</a>
-                    <p class="mt-3 text-center text-xs text-ink/60">
-                        New here?
-                        <a href="{{ route('register') }}" class="font-semibold text-moss hover:underline">Create an account</a>
-                        to place your order. Your cart will be kept.
-                    </p>
-                    @endauth
+                    <form method="GET" action="{{ route('checkout') }}" class="mt-6">
+                        <template x-for="id in selected" :key="id">
+                            <input type="hidden" name="selected[]" :value="id">
+                        </template>
+
+                        @auth
+                        <button type="submit" :disabled="selected.length === 0"
+                            class="btn-primary w-full py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50">
+                            Proceed to checkout
+                            <x-ui.icon name="arrow-right" class="h-4 w-4" />
+                        </button>
+                        @else
+                        <button type="submit" :disabled="selected.length === 0"
+                            class="btn-primary w-full py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50">
+                            Log in to checkout
+                        </button>
+                        <p class="mt-3 text-center text-xs text-ink/60">
+                            New here?
+                            <a href="{{ route('register') }}" class="font-semibold text-moss hover:underline">Create an account</a>
+                            to place your order. Your cart will be kept.
+                        </p>
+                        @endauth
+                    </form>
 
                     <a href="{{ route('catalog') }}" class="btn-outline mt-3 w-full">Continue shopping</a>
                 </div>
@@ -95,4 +136,32 @@
         </div>
         @endif
     </div>
+
+    <script>
+        function cartView(itemsData) {
+            return {
+                items: itemsData,
+                selected: itemsData.map(i => i.id),
+                get allSelected() {
+                    return this.items.length > 0 && this.selected.length === this.items.length;
+                },
+                toggleAll() {
+                    if (this.allSelected) {
+                        this.selected = [];
+                    } else {
+                        this.selected = this.items.map(i => i.id);
+                    }
+                },
+                get selectedSubtotal() {
+                    const sel = this.selected.map(Number);
+                    return this.items
+                        .filter(i => sel.includes(Number(i.id)))
+                        .reduce((sum, i) => sum + i.subtotal, 0);
+                },
+                rupiah(n) {
+                    return 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
+                }
+            };
+        }
+    </script>
 </x-public-layout>

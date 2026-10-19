@@ -181,6 +181,10 @@
         <form method="POST" action="{{ route('checkout.store') }}" class="mt-10 grid gap-8 lg:grid-cols-3">
             @csrf
 
+            @foreach ($items as $item)
+            <input type="hidden" name="selected[]" value="{{ $item->product->id }}">
+            @endforeach
+
             <div class="space-y-6 lg:col-span-2">
                 {{-- Contact --}}
                 <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8">

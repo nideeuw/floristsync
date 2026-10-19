@@ -105,15 +105,37 @@ class CartService
 
     public function remove(Product $product): void
     {
+        $this->removeMany([$product->id]);
+    }
+
+    public function removeById(int $productId): void
+    {
+        $this->removeMany([$productId]);
+    }
+
+    public function removeMany(array $productIds): void
+    {
+        $productIds = array_map('intval', $productIds);
+
+        if (empty($productIds)) {
+            return;
+        }
+
         if ($userId = $this->userId()) {
             CartItem::where('user_id', $userId)
-                ->where('product_id', $product->id)
+                ->whereIn('product_id', $productIds)
                 ->delete();
         }
 
         $cart = session(self::KEY, []);
-        if (isset($cart[$product->id])) {
-            unset($cart[$product->id]);
+        $changed = false;
+        foreach ($productIds as $id) {
+            if (isset($cart[$id])) {
+                unset($cart[$id]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
             session([self::KEY => $cart]);
         }
     }
@@ -127,11 +149,20 @@ class CartService
         session()->forget(self::KEY);
     }
 
-    public function items(): Collection
+    public function items(?array $productIds = null): Collection
     {
         $cart = $this->raw();
 
         if (! $cart) {
+            return collect();
+        }
+
+        if ($productIds !== null) {
+            $productIds = array_map('intval', $productIds);
+            $cart = array_intersect_key($cart, array_flip($productIds));
+        }
+
+        if (empty($cart)) {
             return collect();
         }
 
