@@ -96,6 +96,8 @@ class TransactionService
                     ? "{$customer['name']} ({$customer['phone']})\n{$delivery['address']}"
                     : null,
                 'courier' => $isDelivery ? $delivery['courier'] : null,
+                'shipping_cost' => $isDelivery ? (int) $shippingCost : null,
+                'shipping_service' => $isDelivery ? Str::limit((string) $delivery['service'], 20, '') : null,
                 'notes' => $customer['notes'] ?? null,
                 'total' => $subtotal + $shippingCost,
             ]);

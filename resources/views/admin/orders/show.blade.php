@@ -1,6 +1,6 @@
 @php
 $itemsTotal = $transaction->details->sum('subtotal');
-$shipping = $transaction->total - $itemsTotal;
+$shipping = $transaction->shipping_cost ?? ($transaction->total - $itemsTotal);
 $isDelivery = $transaction->isDelivery();
 
 // shipping_address is stored as: "Recipient name (phone)\nFull address"
@@ -95,6 +95,14 @@ $stepIndex = [
                     <div>
                         <div class="text-xs uppercase text-gray-500">Courier</div>
                         <div class="font-semibold uppercase">{{ $transaction->courier }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase text-gray-500">Service</div>
+                        <div class="font-semibold uppercase">{{ $transaction->shipping_service ?? '-' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase text-gray-500">Shipping cost</div>
+                        <div class="font-semibold">{{ $transaction->shipping_cost !== null ? ($transaction->shipping_cost > 0 ? rupiah($transaction->shipping_cost) : 'Free') : '-' }}</div>
                     </div>
                     <div>
                         <div class="text-xs uppercase text-gray-500">Tracking number (resi)</div>
