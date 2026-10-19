@@ -61,6 +61,11 @@ class User extends Authenticatable
         return $this->hasMany(AppNotification::class);
     }
 
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
     public function hasRole(string ...$roles): bool
     {
         return in_array($this->role?->role_name, $roles, true);
