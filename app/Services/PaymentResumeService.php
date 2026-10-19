@@ -63,7 +63,7 @@ class PaymentResumeService
                 'name' => $member->name,
                 'email' => $member->email,
                 'phone' => $member->phone,
-            ]);
+            ], ['credit_card']);
         } catch (Throwable $e) {
             Log::error("Snap token failed when resuming payment for order #{$transaction->id}: {$e->getMessage()}");
 
@@ -73,6 +73,11 @@ class PaymentResumeService
         $payment->update(['snap_token' => $token]);
 
         return $token;
+    }
+
+    public function resume(Transaction $transaction): Transaction
+    {
+        return app(TransactionService::class)->resumePayment($transaction);
     }
 
     private function assertStillPayable(string $orderId): void

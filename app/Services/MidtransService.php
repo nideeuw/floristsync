@@ -68,7 +68,82 @@ class MidtransService
         }
     }
 
-    public function createSnapToken(Transaction $transaction, array $customer = []): string
+    public function chargeCoreApi(Transaction $transaction, string $method, array $customer = []): array
+    {
+        $payment = $transaction->payment;
+        $orderId = $payment?->midtrans_order_id
+            ?? ($transaction->transaction_type === Transaction::TYPE_POS
+                ? 'FS-POS-'.$transaction->id.'-'.strtoupper(Str::random(6))
+                : 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6)));
+
+        if ($payment && ! $payment->midtrans_order_id) {
+            $payment->update(['midtrans_order_id' => $orderId]);
+        }
+
+        $items = $transaction->details->map(fn ($d) => [
+            'id' => (string) $d->product_id,
+            'price' => (int) $d->unit_price,
+            'quantity' => (int) $d->qty,
+            'name' => Str::limit($d->product?->product_name ?? 'Product', 50, ''),
+        ])->values()->all();
+
+        $shippingCost = (int) $transaction->total - (int) $transaction->details->sum('subtotal');
+
+        if ($shippingCost > 0) {
+            $items[] = ['id' => 'SHIPPING', 'price' => $shippingCost, 'quantity' => 1, 'name' => 'Shipping Cost'];
+        }
+
+        $customerDetails = array_filter([
+            'first_name' => $customer['name'] ?? $transaction->user?->name ?? 'Customer',
+            'email' => $customer['email'] ?? $transaction->user?->email,
+            'phone' => $customer['phone'] ?? $transaction->user?->phone,
+        ]);
+
+        $params = [
+            'transaction_details' => [
+                'order_id' => $orderId,
+                'gross_amount' => (int) $transaction->total,
+            ],
+        ];
+
+        if (! empty($items)) {
+            $params['item_details'] = $items;
+        }
+
+        if (! empty($customerDetails)) {
+            $params['customer_details'] = $customerDetails;
+        }
+
+        if ($method === 'qris') {
+            $params['payment_type'] = 'qris';
+            $params['qris'] = [
+                'acquirer' => 'gopay',
+            ];
+        } elseif ($method === 'gopay') {
+            $params['payment_type'] = 'gopay';
+            $params['gopay'] = [
+                'enable_callback' => true,
+                'callback_url' => route('track', ['order' => $transaction->order_number]),
+            ];
+        } elseif ($method === 'shopeepay') {
+            $params['payment_type'] = 'shopeepay';
+            $params['shopeepay'] = [
+                'callback_url' => route('track', ['order' => $transaction->order_number]),
+            ];
+        } else {
+            throw new DomainException("Unsupported Core API payment method: {$method}");
+        }
+
+        try {
+            $response = CoreApi::charge($params);
+
+            return json_decode(json_encode($response), true);
+        } catch (Throwable $e) {
+            throw $this->toDomainException($e);
+        }
+    }
+
+    public function createSnapToken(Transaction $transaction, array $customer = [], ?array $enabledPayments = null): string
     {
         $items = $transaction->details->map(fn ($d) => [
             'id' => (string) $d->product_id,
@@ -94,7 +169,7 @@ class MidtransService
                 'phone' => $customer['phone'] ?? null,
             ]),
             'item_details' => $items,
-            'enabled_payments' => self::ENABLED_PAYMENTS,
+            'enabled_payments' => $enabledPayments ?? self::ENABLED_PAYMENTS,
             'expiry' => [
                 'unit' => 'minutes',
                 'duration' => self::PAYMENT_WINDOW_MINUTES,

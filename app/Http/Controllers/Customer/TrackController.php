@@ -80,7 +80,8 @@ class TrackController extends Controller
 
         return view('customer.payment', [
             'transaction' => $transaction,
-            'snapToken' => $transaction->payment->snap_token,
+            'snapToken' => $transaction->payment?->snap_token,
+            'initialState' => app(\App\Services\CustomerPaymentService::class)->getInitialState($transaction),
             'clientKey' => config('services.midtrans.client_key'),
             'snapUrl' => config('services.midtrans.is_production')
                 ? 'https://app.midtrans.com/snap/snap.js'

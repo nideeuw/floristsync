@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CustomerPaymentController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\MidtransController;
@@ -32,6 +33,12 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('track/{orderNumber}', [OrderController::class, 'track']);
         Route::get('shipping/destinations', [ShippingController::class, 'destinations']);
         Route::post('shipping/cost', [ShippingController::class, 'cost']);
+    });
+
+    Route::middleware(['role:member', 'throttle:120,1'])->prefix('customer/orders')->group(function () {
+        Route::post('{transaction}/charge', [CustomerPaymentController::class, 'charge'])->name('api.customer.orders.charge');
+        Route::get('{transaction}/payment-status', [CustomerPaymentController::class, 'status'])->name('api.customer.orders.status');
+        Route::post('{transaction}/cancel-charge', [CustomerPaymentController::class, 'cancel'])->name('api.customer.orders.cancel');
     });
 
     // Location search (OpenStreetMap): members and owner

@@ -138,11 +138,14 @@ class CheckoutController extends Controller
         return $this->paymentView($transaction, $transaction->payment->snap_token);
     }
 
-    private function paymentView(Transaction $transaction, string $snapToken): View
+    private function paymentView(Transaction $transaction, ?string $snapToken = null): View
     {
+        $initialState = app(\App\Services\CustomerPaymentService::class)->getInitialState($transaction);
+
         return view('customer.payment', [
             'transaction' => $transaction,
-            'snapToken' => $snapToken,
+            'snapToken' => $snapToken ?? $transaction->payment?->snap_token,
+            'initialState' => $initialState,
             'clientKey' => config('services.midtrans.client_key'),
             'snapUrl' => config('services.midtrans.is_production')
                 ? 'https://app.midtrans.com/snap/snap.js'

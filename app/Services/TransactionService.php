@@ -158,30 +158,6 @@ class TransactionService
             return $transaction->refresh();
         }
 
-        if ($payment->snap_token) {
-            return $transaction;
-        }
-
-        if ($remoteStatus !== null) {
-            throw new DomainException('A payment for this order is already in progress. Please finish it with the payment method you chose.');
-        }
-
-        try {
-            $user = $transaction->user;
-
-            $token = $this->midtrans->createSnapToken($transaction, [
-                'name' => $user?->name,
-                'email' => $user?->email,
-                'phone' => $user?->getAttribute('phone'),
-            ]);
-
-            $payment->update(['snap_token' => $token]);
-        } catch (Throwable $e) {
-            Log::error('Snap token refresh failed for order #'.$transaction->id.': '.$e->getMessage());
-
-            throw new \RuntimeException('Payment could not be started right now. Please try again.', 0, $e);
-        }
-
         return $transaction;
     }
 
