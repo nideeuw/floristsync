@@ -916,7 +916,7 @@
 
                         @if ($transaction->isDelivery())
                         <div class="flex justify-between text-ink/70">
-                            <span>Shipping ({{ strtoupper($transaction->courier) }} {{ $transaction->shipping_service }})</span>
+                            <span>Shipping ({{ $transaction->shipping_service_label ?? (strtoupper($transaction->courier) . ($transaction->shipping_service ? ' ' . $transaction->shipping_service : '')) }})</span>
                             <span>{{ rupiah($transaction->shipping_cost ?? 0) }}</span>
                         </div>
                         @else

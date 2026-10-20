@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasAuditColumns;
+use App\Services\ShippingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -109,6 +110,18 @@ class Transaction extends Model
         }
 
         return $this->isDelivery() ? 'delivery' : 'pickup';
+    }
+
+    public function getShippingServiceLabelAttribute(): ?string
+    {
+        if (! $this->isDelivery() || empty($this->courier)) {
+            return null;
+        }
+
+        return ShippingService::formatServiceLabel(
+            $this->courier,
+            $this->shipping_service
+        );
     }
 
     public function getOrderNumberAttribute(): string

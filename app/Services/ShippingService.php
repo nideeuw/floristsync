@@ -45,6 +45,193 @@ class ShippingService
         });
     }
 
+    public const COURIER_NAMES = [
+        'jne' => 'JNE',
+        'tiki' => 'TIKI',
+        'pos' => 'POS Indonesia',
+        'sicepat' => 'SiCepat',
+        'jnt' => 'J&T',
+    ];
+
+    public const SERVICE_NAMES = [
+        'jne' => [
+            'ctc' => 'City Courier',
+            'ctcyes' => 'City Courier YES',
+            'reg' => 'Reguler',
+            'yes' => 'Yakin Esok Sampai',
+            'oke' => 'Ongkos Kirim Ekonomis',
+            'jtr' => 'Trucking',
+            'jtr<130' => 'Trucking (<130kg)',
+            'jtr>130' => 'Trucking (>130kg)',
+            'jtr250' => 'Trucking (250kg)',
+            'sps' => 'Super Speed',
+            'pelik' => 'Amplop Pra Bayar',
+        ],
+        'tiki' => [
+            'reg' => 'Reguler',
+            'eco' => 'Economy',
+            'ons' => 'Over Night Service',
+            'tds' => 'Two Day Service',
+            'hds' => 'Holiday Delivery Service',
+            'sds' => 'Same Day Service',
+            'trc' => 'Trucking',
+        ],
+        'pos' => [
+            'pos reguler' => 'Reguler',
+            'pos nextday' => 'Nextday',
+            'pos sameday' => 'Sameday',
+            'pos kargo' => 'Kargo',
+            'pos kilat khusus' => 'Kilat Khusus',
+            'paket kilat khusus' => 'Kilat Khusus',
+            'express next day' => 'Express Next Day',
+            'reguler' => 'Reguler',
+            'nextday' => 'Nextday',
+            'sameday' => 'Sameday',
+            'kargo' => 'Kargo',
+            'kilat khusus' => 'Kilat Khusus',
+        ],
+        'sicepat' => [
+            'siunt' => 'SiUntung',
+            'best' => 'Besok Sampai Tujuan',
+            'gokil' => 'Cargo Kilat',
+            'halo' => 'HALO',
+            'hebat' => 'Hemat Banget',
+            'cargo' => 'Cargo Kilat',
+            'reg' => 'Reguler',
+        ],
+        'jnt' => [
+            'ez' => 'Reguler',
+            'j&t super' => 'Super',
+            'super' => 'Super',
+            'j&t eco' => 'Economy',
+            'eco' => 'Economy',
+            'j&t cargo' => 'Cargo',
+            'cargo' => 'Cargo',
+            'reg' => 'Reguler',
+        ],
+    ];
+
+    public static function formatCourierName(?string $courier, ?string $rawName = null): string
+    {
+        $key = strtolower(trim((string) $courier));
+
+        if (isset(self::COURIER_NAMES[$key])) {
+            return self::COURIER_NAMES[$key];
+        }
+
+        if (! empty($rawName)) {
+            $trimmed = trim($rawName);
+            if (preg_match('/\(([^)]+)\)/', $trimmed, $m)) {
+                $candidate = strtolower(trim($m[1]));
+                if (isset(self::COURIER_NAMES[$candidate])) {
+                    return self::COURIER_NAMES[$candidate];
+                }
+            }
+
+            return $trimmed;
+        }
+
+        return strtoupper($key);
+    }
+
+    public static function formatEstimate(?string $etd): ?string
+    {
+        if ($etd === null) {
+            return null;
+        }
+
+        $raw = trim($etd);
+        if ($raw === '') {
+            return null;
+        }
+
+        $cleaned = trim((string) preg_replace('/\b(hari|days?|hours?|jam)\b/i', '', $raw));
+        $cleaned = trim($cleaned, "- \t\n\r\0\x0B");
+
+        if ($cleaned === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d+)\s*-\s*(\d+)$/', $cleaned, $matches)) {
+            $min = (int) $matches[1];
+            $max = (int) $matches[2];
+
+            if ($min === 1 && $max === 1) {
+                return '1 day';
+            }
+
+            if ($min === 0 && $max === 0) {
+                return 'Same day';
+            }
+
+            return "{$min}-{$max} days";
+        }
+
+        if (preg_match('/^\d+$/', $cleaned)) {
+            $num = (int) $cleaned;
+            if ($num === 1) {
+                return '1 day';
+            }
+            if ($num === 0) {
+                return 'Same day';
+            }
+
+            return "{$num} days";
+        }
+
+        return $raw;
+    }
+
+    public static function formatServiceLabel(
+        ?string $courier,
+        ?string $service,
+        ?string $description = null,
+        ?string $etd = null,
+        ?string $courierName = null
+    ): string {
+        $courierKey = strtolower(trim((string) $courier));
+        $serviceCode = trim((string) $service);
+        $serviceKey = strtolower($serviceCode);
+        $courierTitle = self::formatCourierName($courier, $courierName);
+
+        $desc = trim((string) $description);
+
+        if ($desc === '' || strcasecmp($desc, $serviceCode) === 0) {
+            $desc = self::SERVICE_NAMES[$courierKey][$serviceKey] ?? $serviceCode;
+        }
+
+        $name = $desc;
+
+        if ($courierTitle !== '') {
+            $lowerName = strtolower($name);
+            $lowerCourier = strtolower($courierTitle);
+            $shortCourier = strtolower(self::COURIER_NAMES[$courierKey] ?? $courierKey);
+
+            if (strcasecmp($name, $courierTitle) === 0 || ($shortCourier !== '' && strcasecmp($name, $shortCourier) === 0)) {
+                $name = '';
+            } elseif ($lowerCourier !== '' && str_starts_with($lowerName, $lowerCourier . ' ')) {
+                $name = trim(substr($name, strlen($lowerCourier)));
+            } elseif ($shortCourier !== '' && str_starts_with($lowerName, $shortCourier . ' ')) {
+                $name = trim(substr($name, strlen($shortCourier)));
+            } elseif ($courierKey !== '' && str_starts_with($lowerName, $courierKey . ' ')) {
+                $name = trim(substr($name, strlen($courierKey)));
+            }
+
+            $name = $name !== '' ? "{$courierTitle} {$name}" : $courierTitle;
+        }
+
+        if ($name === '') {
+            $name = $courierTitle ?: $serviceCode;
+        }
+
+        $formattedEtd = self::formatEstimate($etd);
+        if ($formattedEtd !== null && $formattedEtd !== '') {
+            $name .= " ({$formattedEtd})";
+        }
+
+        return trim($name);
+    }
+
     public function calculateCost(int $destinationId, int $weightGram, string $courier = 'jne'): array
     {
         $origin = (int) app(SettingService::class)->get('shipping_origin_id', config('services.rajaongkir.origin_id'));
@@ -77,14 +264,23 @@ class ShippingService
 
         $options = collect($rows)
             ->filter(fn($row) => isset($row['service'], $row['cost']))
-            ->map(fn($row) => [
-                'courier' => (string) ($row['name'] ?? ''),
-                'code' => (string) ($row['code'] ?? $courier),
-                'service' => (string) $row['service'],
-                'description' => (string) ($row['description'] ?? ''),
-                'cost' => (int) $row['cost'],
-                'etd' => (string) ($row['etd'] ?? ''),
-            ])
+            ->map(function ($row) use ($courier) {
+                $code = (string) ($row['code'] ?? $courier);
+                $service = (string) $row['service'];
+                $description = (string) ($row['description'] ?? '');
+                $etd = (string) ($row['etd'] ?? '');
+                $courierRaw = (string) ($row['name'] ?? '');
+
+                return [
+                    'courier' => $courierRaw,
+                    'code' => $code,
+                    'service' => $service,
+                    'description' => $description,
+                    'cost' => (int) $row['cost'],
+                    'etd' => $etd,
+                    'label' => self::formatServiceLabel($code, $service, $description, $etd, $courierRaw),
+                ];
+            })
             ->sortBy('cost')
             ->values()
             ->all();

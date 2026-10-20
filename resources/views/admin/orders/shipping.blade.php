@@ -45,7 +45,7 @@ $tabs = [
                     <div class="font-semibold">{{ \Illuminate\Support\Str::before($order->shipping_address, "\n") }}</div>
                     <div class="max-w-xs text-xs text-gray-500">{{ \Illuminate\Support\Str::limit(\Illuminate\Support\Str::after($order->shipping_address, "\n"), 90) }}</div>
                 </td>
-                <td class="font-semibold uppercase">{{ $order->courier }}</td>
+                <td class="font-semibold">{{ $order->shipping_service_label ?? strtoupper($order->courier) }}</td>
                 <td>
                     @if ($order->status === 'processing')
                     <form method="POST" action="{{ route('admin.orders.tracking', $order) }}" class="flex gap-2">

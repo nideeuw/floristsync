@@ -298,9 +298,11 @@
                                                     :class="service === option.service ? 'border-moss bg-sage/10 ring-2 ring-sage/40' : ''">
                                                     <input type="radio" name="service" :value="option.service" x-model="service" class="mt-1 accent-moss">
                                                     <span class="text-sm">
-                                                        <span class="block font-semibold" x-text="option.service"></span>
-                                                        <span class="block text-xs text-ink/60" x-text="option.description || ''"></span>
-                                                        <span class="block text-xs text-ink/60" x-text="rupiah(option.cost) + (option.etd ? ' (' + option.etd + ')' : '')"></span>
+                                                        <span class="block font-semibold" x-text="option.label || option.service"></span>
+                                                        <template x-if="!option.label && option.description">
+                                                            <span class="block text-xs text-ink/60" x-text="option.description"></span>
+                                                        </template>
+                                                        <span class="block text-xs text-ink/60" x-text="rupiah(option.cost) + (!option.label && option.etd ? ' (' + option.etd + ')' : '')"></span>
                                                     </span>
                                                 </label>
                                             </template>

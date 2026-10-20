@@ -182,7 +182,7 @@ $isDelivery = $transaction->isDelivery();
                 <div class="mt-2 text-sm font-semibold text-ink">
                     {{ $isDelivery ? 'Delivery' : 'Store Pickup' }}
                     @if ($isDelivery && $transaction->courier)
-                    <span class="uppercase text-ink/70 text-xs">({{ $transaction->courier }})</span>
+                    <span class="text-ink/70 text-xs">({{ $transaction->shipping_service_label ?? strtoupper($transaction->courier) }})</span>
                     @endif
                 </div>
                 <div class="mt-1 text-xs text-ink/70 leading-relaxed">

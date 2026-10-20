@@ -62,13 +62,15 @@
     </ol>
     @endif
 
-    @if ($selected->isDelivery() && $selected->tracking_number)
+    @if ($selected->isDelivery())
     <div class="mt-6 rounded-2xl bg-cream px-4 py-3 text-sm">
-        Courier: <span class="font-semibold uppercase">{{ $selected->courier }}</span> &middot;
-        Tracking number: <span class="font-mono font-semibold">{{ $selected->tracking_number }}</span>
+        Courier: <span class="font-semibold">{{ $selected->shipping_service_label ?? strtoupper($selected->courier) }}</span>
+        @if ($selected->tracking_number)
+        &middot; Tracking number: <span class="font-mono font-semibold">{{ $selected->tracking_number }}</span>
+        @endif
     </div>
 
-    @if (count($manifest))
+    @if ($selected->tracking_number && count($manifest))
     <ul class="mt-3 space-y-2 text-sm">
         @foreach ($manifest as $row)
         <li class="rounded-2xl border border-blush px-4 py-2.5">
