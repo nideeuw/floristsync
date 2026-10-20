@@ -83,9 +83,7 @@ class TrackController extends Controller
             'snapToken' => $transaction->payment?->snap_token,
             'initialState' => app(\App\Services\CustomerPaymentService::class)->getInitialState($transaction),
             'clientKey' => config('services.midtrans.client_key'),
-            'snapUrl' => config('services.midtrans.is_production')
-                ? 'https://app.midtrans.com/snap/snap.js'
-                : 'https://app.sandbox.midtrans.com/snap/snap.js',
+            'isProduction' => (bool) config('services.midtrans.is_production'),
         ]);
     }
 

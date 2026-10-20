@@ -147,9 +147,7 @@ class CheckoutController extends Controller
             'snapToken' => $snapToken ?? $transaction->payment?->snap_token,
             'initialState' => $initialState,
             'clientKey' => config('services.midtrans.client_key'),
-            'snapUrl' => config('services.midtrans.is_production')
-                ? 'https://app.midtrans.com/snap/snap.js'
-                : 'https://app.sandbox.midtrans.com/snap/snap.js',
+            'isProduction' => (bool) config('services.midtrans.is_production'),
         ]);
     }
 }

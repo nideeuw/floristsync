@@ -24,7 +24,7 @@ class CustomerPaymentService
      *
      * @throws DomainException|RuntimeException
      */
-    public function charge(Transaction $transaction, string $method, User $user): array
+    public function charge(Transaction $transaction, string $method, User $user, array $params = []): array
     {
         $this->assertCanPay($transaction, $user);
 
@@ -54,8 +54,23 @@ class CustomerPaymentService
             $payment->refresh();
         }
 
-        // Return cached charge data if same method is already pending and available
-        if ($payment->payment_method === $method && $payment->payment_status === 'pending') {
+        // If charging a new card token on an already-attempted card invoice, renew midtrans order ID
+        if ($method === 'credit_card' && ! empty($params['token_id']) && ($payment->snap_token || $payment->payment_proof || $payment->payment_status !== 'pending')) {
+            $this->reversal->cancelInvoice($transaction);
+
+            $newOrderId = 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6));
+            $payment->update([
+                'midtrans_order_id' => $newOrderId,
+                'payment_method' => $method,
+                'payment_status' => 'pending',
+                'snap_token' => null,
+                'payment_proof' => null,
+            ]);
+            $payment->refresh();
+        }
+
+        // Return cached charge data if same method is already pending and available (unless a new card token is submitted)
+        if (empty($params['token_id']) && $payment->payment_method === $method && $payment->payment_status === 'pending') {
             $cached = $this->getCachedChargeData($transaction, $method);
             if ($cached !== null) {
                 return $cached;
@@ -69,7 +84,7 @@ class CustomerPaymentService
         ];
 
         if ($method === 'credit_card') {
-            return $this->chargeCard($transaction, $customer);
+            return $this->chargeCard($transaction, $customer, $params['token_id'] ?? null);
         }
 
         return $this->chargeCoreMethod($transaction, $method, $customer);
@@ -131,9 +146,12 @@ class CustomerPaymentService
         }
 
         $payment = $transaction->payment;
+        $statusMessage = null;
+
         if ($payment && $payment->midtrans_order_id) {
             $remote = $this->midtrans->getStatus($payment->midtrans_order_id);
             if ($remote !== null) {
+                $statusMessage = $remote['status_message'] ?? null;
                 $this->transactions->updatePaymentStatus($remote);
                 $transaction->refresh();
                 $transaction->loadMissing('payment');
@@ -151,6 +169,8 @@ class CustomerPaymentService
             'transaction_status' => $transaction->status,
             'is_paid' => $isPaid,
             'is_failed' => $isFailed,
+            'message' => $statusMessage,
+            'can_retry' => $transaction->canResumePayment(),
             'redirect_url' => $isPaid ? route('track', ['order' => $transaction->order_number]) : null,
         ];
     }
@@ -166,33 +186,56 @@ class CustomerPaymentService
 
         return [
             'method' => $payment?->payment_method,
+            'payment_status' => $payment?->payment_status ?? 'pending',
             'qr_url' => in_array($payment?->payment_method, ['qris', 'gopay'], true) ? $payment?->snap_token : null,
             'deeplink' => in_array($payment?->payment_method, ['gopay', 'shopeepay'], true) ? $payment?->payment_proof : null,
             'qr_string' => $payment?->payment_method === 'qris' ? $payment?->payment_proof : null,
+            'redirect_url' => $payment?->payment_method === 'credit_card' ? $payment?->snap_token : null,
             'snap_token' => $payment?->payment_method === 'credit_card' ? $payment?->snap_token : null,
             'remaining_seconds' => $remainingSeconds,
         ];
     }
 
-    private function chargeCard(Transaction $transaction, array $customer): array
+    private function chargeCard(Transaction $transaction, array $customer, ?string $tokenId): array
     {
+        if (! $tokenId) {
+            throw new DomainException('Card token is required for credit card payment.');
+        }
+
         $payment = $transaction->payment;
 
-        try {
-            $token = $this->midtrans->createSnapToken($transaction, $customer, ['credit_card']);
-        } catch (Throwable $e) {
-            throw new RuntimeException('Payment could not be started right now. Please try again.', 0, $e);
+        $response = $this->midtrans->chargeCoreApi($transaction, 'credit_card', $customer, ['token_id' => $tokenId]);
+
+        $redirectUrl = $response['redirect_url'] ?? null;
+        $transactionId = $response['transaction_id'] ?? null;
+        $transactionStatus = $response['transaction_status'] ?? 'pending';
+
+        if (in_array($transactionStatus, ['deny', 'failure', 'cancel'], true)) {
+            $payment->update([
+                'payment_method' => 'credit_card',
+                'payment_status' => $transactionStatus,
+                'payment_proof' => $transactionId,
+            ]);
+
+            throw new DomainException($response['status_message'] ?? 'Card payment was denied. Please try another card or payment method.');
         }
 
         $payment->update([
             'payment_method' => 'credit_card',
-            'snap_token' => $token,
-            'payment_status' => 'pending',
+            'snap_token' => $redirectUrl,
+            'payment_proof' => $transactionId,
+            'payment_status' => in_array($transactionStatus, ['settlement', 'capture'], true) ? $transactionStatus : 'pending',
         ]);
+
+        if (in_array($transactionStatus, ['settlement', 'capture'], true)) {
+            $this->transactions->updatePaymentStatus($response);
+        }
 
         return [
             'method' => 'credit_card',
-            'snap_token' => $token,
+            'redirect_url' => $redirectUrl,
+            'transaction_id' => $transactionId,
+            'transaction_status' => $transactionStatus,
             'order_id' => (string) $payment->midtrans_order_id,
             'gross_amount' => (int) $transaction->total,
             'expires_at' => $transaction->paymentDeadline()?->toIso8601String(),
@@ -293,7 +336,9 @@ class CustomerPaymentService
         if ($method === 'credit_card' && $payment->snap_token) {
             return array_merge($base, [
                 'method' => 'credit_card',
+                'redirect_url' => $payment->snap_token,
                 'snap_token' => $payment->snap_token,
+                'transaction_id' => $payment->payment_proof,
             ]);
         }
 

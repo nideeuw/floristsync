@@ -68,7 +68,7 @@ class MidtransService
         }
     }
 
-    public function chargeCoreApi(Transaction $transaction, string $method, array $customer = []): array
+    public function chargeCoreApi(Transaction $transaction, string $method, array $customer = [], array $extra = []): array
     {
         $payment = $transaction->payment;
         $orderId = $payment?->midtrans_order_id
@@ -129,6 +129,16 @@ class MidtransService
             $params['payment_type'] = 'shopeepay';
             $params['shopeepay'] = [
                 'callback_url' => route('track', ['order' => $transaction->order_number]),
+            ];
+        } elseif ($method === 'credit_card' || $method === 'card') {
+            $tokenId = $extra['token_id'] ?? null;
+            if (! $tokenId) {
+                throw new DomainException('Card token is required for credit card payment.');
+            }
+            $params['payment_type'] = 'credit_card';
+            $params['credit_card'] = [
+                'token_id' => $tokenId,
+                'authentication' => true,
             ];
         } else {
             throw new DomainException("Unsupported Core API payment method: {$method}");

@@ -16,10 +16,11 @@ class CustomerPaymentController extends Controller
     {
         $validated = $request->validate([
             'method' => ['required', 'string', 'in:qris,gopay,shopeepay,card,credit_card'],
+            'token_id' => ['required_if:method,card,credit_card', 'nullable', 'string', 'max:255'],
         ]);
 
         try {
-            $data = $paymentService->charge($transaction, $validated['method'], $request->user());
+            $data = $paymentService->charge($transaction, $validated['method'], $request->user(), $validated);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             throw $e;
         } catch (DomainException $e) {

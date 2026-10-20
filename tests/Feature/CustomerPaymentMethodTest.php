@@ -110,6 +110,10 @@ class CustomerPaymentMethodTest extends TestCase
         $response->assertSee('GoPay');
         $response->assertSee('ShopeePay');
         $response->assertSee('Credit / Debit Card');
+        $response->assertSee('midtrans-new-3ds.min.js');
+        $response->assertDontSee('snap.js');
+        $response->assertSee('Card Number');
+        $response->assertSee('CVV / CVC');
     }
 
     public function test_member_can_charge_qris(): void
@@ -241,22 +245,32 @@ class CustomerPaymentMethodTest extends TestCase
         $this->assertSame('https://simulator.sandbox.midtrans.com/shopeepay/partner/app/payment-pin?id=55555', $payment->payment_proof);
     }
 
-    public function test_member_can_charge_credit_card_via_snap(): void
+    public function test_member_can_charge_credit_card_with_token_id(): void
     {
         $transaction = $this->createPendingOrder($this->member);
 
-        $this->mock(MidtransService::class, function (MockInterface $mock) {
-            $mock->shouldReceive('createSnapToken')
+        $this->mock(MidtransService::class, function (MockInterface $mock) use ($transaction) {
+            $mock->shouldReceive('chargeCoreApi')
                 ->once()
-                ->withArgs(function ($tx, $customer, $enabledPayments) {
-                    return $enabledPayments === ['credit_card'];
+                ->withArgs(function ($tx, $method, $customer, $extra) {
+                    return $method === 'credit_card' && ($extra['token_id'] ?? null) === 'test-card-token-123';
                 })
-                ->andReturn('test-card-snap-token');
+                ->andReturn([
+                    'status_code' => '201',
+                    'transaction_status' => 'pending',
+                    'fraud_status' => 'challenge',
+                    'redirect_url' => 'https://api.sandbox.midtrans.com/v2/token/3ds/authorized/redirect-123',
+                    'transaction_id' => 'tx-uuid-card-999',
+                    'order_id' => $transaction->payment->midtrans_order_id,
+                ]);
         });
 
         $response = $this->actingAs($this->member)->postJson(
             route('api.customer.orders.charge', $transaction),
-            ['method' => 'card']
+            [
+                'method' => 'card',
+                'token_id' => 'test-card-token-123',
+            ]
         );
 
         $response->assertOk();
@@ -264,13 +278,62 @@ class CustomerPaymentMethodTest extends TestCase
             'status' => 'success',
             'data' => [
                 'method' => 'credit_card',
-                'snap_token' => 'test-card-snap-token',
+                'redirect_url' => 'https://api.sandbox.midtrans.com/v2/token/3ds/authorized/redirect-123',
+                'transaction_id' => 'tx-uuid-card-999',
+                'transaction_status' => 'pending',
             ],
         ]);
 
         $payment = $transaction->fresh()->payment;
         $this->assertSame('credit_card', $payment->payment_method);
-        $this->assertSame('test-card-snap-token', $payment->snap_token);
+        $this->assertSame('https://api.sandbox.midtrans.com/v2/token/3ds/authorized/redirect-123', $payment->snap_token);
+        $this->assertSame('tx-uuid-card-999', $payment->payment_proof);
+    }
+
+    public function test_cannot_charge_card_without_token_id(): void
+    {
+        $transaction = $this->createPendingOrder($this->member);
+
+        $response = $this->actingAs($this->member)->postJson(
+            route('api.customer.orders.charge', $transaction),
+            ['method' => 'card']
+        );
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['token_id']);
+    }
+
+    public function test_card_charge_direct_capture_marks_order_paid(): void
+    {
+        $transaction = $this->createPendingOrder($this->member);
+
+        $this->mock(MidtransService::class, function (MockInterface $mock) use ($transaction) {
+            $mock->shouldReceive('chargeCoreApi')
+                ->once()
+                ->withArgs(function ($tx, $method, $customer, $extra) {
+                    return $method === 'credit_card' && ($extra['token_id'] ?? null) === 'test-card-token-instant';
+                })
+                ->andReturn([
+                    'status_code' => '200',
+                    'transaction_status' => 'capture',
+                    'fraud_status' => 'accept',
+                    'gross_amount' => (string) $transaction->total,
+                    'order_id' => $transaction->payment->midtrans_order_id,
+                    'transaction_id' => 'tx-instant-888',
+                ]);
+        });
+
+        $response = $this->actingAs($this->member)->postJson(
+            route('api.customer.orders.charge', $transaction),
+            [
+                'method' => 'credit_card',
+                'token_id' => 'test-card-token-instant',
+            ]
+        );
+
+        $response->assertOk();
+        $this->assertSame(Transaction::PROCESSING, $transaction->fresh()->status);
+        $this->assertNotNull($transaction->fresh()->payment->payment_date);
     }
 
     public function test_changing_payment_method_cancels_previous_charge_and_generates_new_order_id(): void
@@ -455,4 +518,111 @@ class CustomerPaymentMethodTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_card_payment_denied_does_not_cancel_order_and_allows_retry(): void
+    {
+        $transaction = $this->createPendingOrder($this->member);
+        $initialOrderId = $transaction->payment->midtrans_order_id;
+
+        // Attempt 1: Denied by bank (e.g. CVV mismatch)
+        $this->mock(MidtransService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('chargeCoreApi')
+                ->once()
+                ->andReturn([
+                    'status_code' => '202',
+                    'transaction_status' => 'deny',
+                    'status_message' => 'Deny by Bank [BNI] with code [N7] and message [Decline for CVV2 failure]',
+                    'transaction_id' => 'tx-denied-111',
+                ]);
+            $mock->shouldReceive('cancelInvoice')->byDefault();
+            $mock->shouldReceive('getStatus')->byDefault()->andReturn(null);
+        });
+
+        $response = $this->actingAs($this->member)->postJson(
+            route('api.customer.orders.charge', $transaction),
+            [
+                'method' => 'credit_card',
+                'token_id' => 'card-token-wrong-cvv',
+            ]
+        );
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'message' => 'Deny by Bank [BNI] with code [N7] and message [Decline for CVV2 failure]',
+        ]);
+
+        // Assert order is NOT cancelled; payment window is still valid!
+        $transaction->refresh();
+        $this->assertSame(Transaction::PENDING_PAYMENT, $transaction->status);
+        $this->assertTrue($transaction->canResumePayment());
+        $this->assertSame('deny', $transaction->payment->payment_status);
+
+        // Status check returns failure info with error message and can_retry = true
+        $this->mock(MidtransService::class, function (MockInterface $mock) use ($initialOrderId) {
+            $mock->shouldReceive('getStatus')
+                ->with($initialOrderId)
+                ->andReturn([
+                    'order_id' => $initialOrderId,
+                    'transaction_status' => 'deny',
+                    'status_message' => 'Deny by Bank [BNI] with code [N7] and message [Decline for CVV2 failure]',
+                    'payment_type' => 'credit_card',
+                    'gross_amount' => '150000.00',
+                ]);
+            $mock->shouldReceive('cancelInvoice')->byDefault();
+        });
+
+        $statusResponse = $this->actingAs($this->member)->getJson(
+            route('api.customer.orders.status', $transaction)
+        );
+
+        $statusResponse->assertOk();
+        $statusResponse->assertJson([
+            'status' => 'deny',
+            'is_paid' => false,
+            'is_failed' => true,
+            'can_retry' => true,
+            'message' => 'Deny by Bank [BNI] with code [N7] and message [Decline for CVV2 failure]',
+        ]);
+        $this->assertSame(Transaction::PENDING_PAYMENT, $transaction->fresh()->status);
+
+        // Attempt 2: Customer retries with correct CVV / new card token
+        $this->mock(MidtransService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('chargeCoreApi')
+                ->once()
+                ->withArgs(function ($tx, $method, $customer, $extra) {
+                    return $method === 'credit_card' && ($extra['token_id'] ?? null) === 'card-token-correct-cvv';
+                })
+                ->andReturn([
+                    'status_code' => '201',
+                    'transaction_status' => 'pending',
+                    'redirect_url' => 'https://api.sandbox.midtrans.com/v2/token/3ds/authorized/redirect-456',
+                    'transaction_id' => 'tx-pending-222',
+                ]);
+            $mock->shouldReceive('cancelInvoice')->byDefault();
+            $mock->shouldReceive('getStatus')->byDefault()->andReturn(null);
+        });
+
+        $retryResponse = $this->actingAs($this->member)->postJson(
+            route('api.customer.orders.charge', $transaction),
+            [
+                'method' => 'credit_card',
+                'token_id' => 'card-token-correct-cvv',
+            ]
+        );
+
+        $retryResponse->assertOk();
+        $retryResponse->assertJson([
+            'status' => 'success',
+            'data' => [
+                'method' => 'credit_card',
+                'redirect_url' => 'https://api.sandbox.midtrans.com/v2/token/3ds/authorized/redirect-456',
+            ],
+        ]);
+
+        $payment = $transaction->fresh()->payment;
+        $this->assertNotSame($initialOrderId, $payment->midtrans_order_id);
+        $this->assertSame('pending', $payment->payment_status);
+        $this->assertSame(Transaction::PENDING_PAYMENT, $transaction->fresh()->status);
+    }
 }
+

@@ -164,9 +164,18 @@ class TransactionService
     public function updatePaymentStatus(array $notification): void
     {
         DB::transaction(function () use ($notification) {
-            $payment = Payment::where('midtrans_order_id', $notification['order_id'])
+            $orderId = $notification['order_id'] ?? null;
+            if (! $orderId) {
+                return;
+            }
+
+            $payment = Payment::where('midtrans_order_id', $orderId)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if (! $payment) {
+                return;
+            }
 
             $this->assertAmountMatches($payment, $notification);
 
@@ -187,7 +196,7 @@ class TransactionService
 
             if ($this->isPaid($notification)) {
                 $this->markPaid($payment, $transaction);
-            } elseif (in_array($status, self::FAILED_STATUSES, true)) {
+            } elseif ($status === 'expire' || (! $transaction->canResumePayment() && in_array($status, self::FAILED_STATUSES, true))) {
                 $this->cancel($transaction);
             }
         });

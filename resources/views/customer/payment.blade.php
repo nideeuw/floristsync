@@ -1,5 +1,11 @@
 <x-public-layout title="Payment">
-    <script src="{{ $snapUrl }}" data-client-key="{{ $clientKey }}"></script>
+    <script id="midtrans-script"
+        type="text/javascript"
+        src="https://api.midtrans.com/v2/assets/js/midtrans-new-3ds.min.js"
+        data-environment="{{ ($isProduction ?? config('services.midtrans.is_production')) ? 'production' : 'sandbox' }}"
+        data-client-key="{{ $clientKey }}">
+    </script>
+
     <script>
         function customerPayment(config) {
             return {
@@ -16,12 +22,36 @@
                     qr_url: config.initialState.qr_url,
                     deeplink: config.initialState.deeplink,
                     qr_string: config.initialState.qr_string,
-                    snap_token: config.initialState.snap_token,
+                    redirect_url: config.initialState.redirect_url,
                 } : null,
 
-                chargeStatus: config.initialState?.method ? 'pending' : 'idle',
+                chargeStatus: (() => {
+                    if (!config.initialState?.method) return 'idle';
+                    if (config.initialState.payment_status === 'settlement' || config.initialState.payment_status === 'capture') return 'settlement';
+                    if (config.initialState.payment_status === 'expire') return 'expire';
+                    if (config.initialState.method === 'credit_card') {
+                        if (config.initialState.payment_status === 'pending' && config.initialState.redirect_url) {
+                            return 'pending';
+                        }
+                        return 'card_input';
+                    }
+                    return config.initialState.payment_status === 'pending' ? 'pending' : 'idle';
+                })(),
                 loading: false,
                 errorMessage: '',
+
+                // Card details state (stored ONLY in frontend memory, never submitted to our backend)
+                cardNumber: '',
+                cardRawNumber: '',
+                cardHolder: config.customerName || '',
+                cardExp: '',
+                cardCvv: '',
+                cardError: '',
+                cardSubmitting: false,
+
+                // 3-D Secure Modal state
+                threeDsUrl: '',
+                threeDsOpen: false,
 
                 remainingSeconds: config.initialState?.remaining_seconds ?? 3600,
                 timerInterval: null,
@@ -31,6 +61,9 @@
                     this.startTimer();
                     if (this.activeCharge && this.chargeStatus === 'pending') {
                         this.startPolling();
+                        if (this.method === 'credit_card' && this.activeCharge.redirect_url) {
+                            this.handle3ds(this.activeCharge.redirect_url);
+                        }
                     }
                 },
 
@@ -39,6 +72,91 @@
                     const m = Math.floor(this.remainingSeconds / 60);
                     const s = this.remainingSeconds % 60;
                     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                },
+
+                get cardBrand() {
+                    const clean = (this.cardNumber || '').replace(/\D/g, '');
+                    if (/^4/.test(clean)) return 'visa';
+                    if (/^(5[1-5]|2[2-7])/.test(clean)) return 'mastercard';
+                    if (/^35/.test(clean)) return 'jcb';
+                    if (/^3[47]/.test(clean)) return 'amex';
+                    return 'unknown';
+                },
+
+                formatCardNumber(e) {
+                    let v = e.target.value.replace(/\D/g, '').slice(0, 16);
+                    this.cardRawNumber = v;
+                    this.cardNumber = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+                },
+
+                formatCardExpiry(e) {
+                    let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    if (v.length >= 3) {
+                        this.cardExp = v.slice(0, 2) + ' / ' + v.slice(2);
+                    } else {
+                        this.cardExp = v;
+                    }
+                },
+
+                formatCardCvv(e) {
+                    this.cardCvv = e.target.value.replace(/\D/g, '').slice(0, 4);
+                },
+
+                fillTestCard() {
+                    this.cardRawNumber = '4811111111111114';
+                    this.cardNumber = '4811 1111 1111 1114';
+                    this.cardHolder = config.customerName || 'TEST USER';
+                    this.cardExp = '12 / 28';
+                    this.cardCvv = '123';
+                    this.cardError = '';
+                },
+
+                retryCardInput() {
+                    this.stopPolling();
+                    this.threeDsOpen = false;
+                    this.threeDsUrl = '';
+                    this.cardSubmitting = false;
+                    this.method = 'credit_card';
+                    this.chargeStatus = 'card_input';
+                    this.cardCvv = '';
+                    if (this.errorMessage) {
+                        this.cardError = this.errorMessage;
+                    }
+                    this.errorMessage = '';
+                },
+
+                validateCard() {
+                    this.cardError = '';
+                    const cleanNumber = (this.cardNumber || '').replace(/\s+/g, '');
+                    if (cleanNumber.length < 15 || cleanNumber.length > 16) {
+                        this.cardError = 'Please enter a valid 15 or 16-digit card number.';
+                        return false;
+                    }
+
+                    const expParts = (this.cardExp || '').split('/');
+                    const expMonth = parseInt(expParts[0]?.trim(), 10);
+                    const expYearStr = expParts[1]?.trim() || '';
+                    const expYear = expYearStr.length === 2 ? 2000 + parseInt(expYearStr, 10) : parseInt(expYearStr, 10);
+
+                    if (!expMonth || expMonth < 1 || expMonth > 12) {
+                        this.cardError = 'Please enter a valid expiry month (01-12).';
+                        return false;
+                    }
+
+                    const now = new Date();
+                    const curYear = now.getFullYear();
+                    const curMonth = now.getMonth() + 1;
+                    if (!expYear || expYear < curYear || (expYear === curYear && expMonth < curMonth)) {
+                        this.cardError = 'Card expiration date cannot be in the past.';
+                        return false;
+                    }
+
+                    if (!this.cardCvv || this.cardCvv.length < 3 || this.cardCvv.length > 4) {
+                        this.cardError = 'Please enter a valid 3 or 4-digit CVV.';
+                        return false;
+                    }
+
+                    return true;
                 },
 
                 startTimer() {
@@ -56,6 +174,15 @@
 
                 async selectMethod(m) {
                     if (this.loading || this.remainingSeconds <= 0) return;
+
+                    if (m === 'card' || m === 'credit_card') {
+                        this.method = 'credit_card';
+                        this.chargeStatus = 'card_input';
+                        this.errorMessage = '';
+                        this.cardError = '';
+                        return;
+                    }
+
                     if (this.method === m && this.activeCharge && this.chargeStatus === 'pending') return;
 
                     this.method = m;
@@ -84,11 +211,6 @@
 
                         this.activeCharge = json.data;
                         this.chargeStatus = 'pending';
-
-                        if (m === 'card' || m === 'credit_card') {
-                            this.payWithCard();
-                        }
-
                         this.startPolling();
                     } catch (err) {
                         this.chargeStatus = 'error';
@@ -98,27 +220,127 @@
                     }
                 },
 
-                payWithCard() {
-                    if (!this.activeCharge?.snap_token) return;
-                    if (!window.snap) {
-                        this.errorMessage = 'Card payment window could not load. Please refresh.';
+                async submitCardPayment() {
+                    if (this.cardSubmitting || this.remainingSeconds <= 0) return;
+                    if (!this.validateCard()) return;
+
+                    if (typeof MidtransNew3ds === 'undefined') {
+                        this.cardError = 'Card security module is not loaded. Please refresh the page and try again.';
                         return;
                     }
 
-                    window.snap.pay(this.activeCharge.snap_token, {
+                    this.cardSubmitting = true;
+                    this.cardError = '';
+                    this.errorMessage = '';
+
+                    const cleanNumber = (this.cardNumber || '').replace(/\s+/g, '');
+                    const expParts = (this.cardExp || '').split('/');
+                    const expMonth = parseInt(expParts[0]?.trim(), 10);
+                    const expYearStr = expParts[1]?.trim() || '';
+                    const expYear = expYearStr.length === 2 ? '20' + expYearStr : expYearStr;
+
+                    const cardData = {
+                        card_number: cleanNumber,
+                        card_exp_month: String(expMonth).padStart(2, '0'),
+                        card_exp_year: String(expYear),
+                        card_cvv: this.cardCvv,
+                    };
+
+                    MidtransNew3ds.getCardToken(cardData, {
+                        onSuccess: async (res) => {
+                            await this.chargeCardToken(res.token_id);
+                        },
+                        onFailure: (res) => {
+                            this.cardSubmitting = false;
+                            this.cardError = res.status_message || 'Could not verify card details. Please check your card number, expiry, and CVV.';
+                        }
+                    });
+                },
+
+                async chargeCardToken(tokenId) {
+                    try {
+                        const res = await fetch(`/api/customer/orders/${this.transactionId}/charge`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': this.csrfToken,
+                            },
+                            body: JSON.stringify({
+                                method: 'credit_card',
+                                token_id: tokenId,
+                            }),
+                        });
+
+                        const json = await res.json();
+                        if (!res.ok) {
+                            this.cardSubmitting = false;
+                            this.cardError = json.message || 'Payment failed. Please try again.';
+                            return;
+                        }
+
+                        this.activeCharge = json.data;
+                        this.chargeStatus = 'pending';
+
+                        if (json.data?.redirect_url) {
+                            this.handle3ds(json.data.redirect_url);
+                        } else {
+                            this.cardSubmitting = false;
+                            this.checkStatusNow();
+                        }
+
+                        this.startPolling();
+                    } catch (err) {
+                        this.cardSubmitting = false;
+                        this.cardError = 'Network error while processing payment. Please try again.';
+                    }
+                },
+
+                handle3ds(redirectUrl) {
+                    if (!redirectUrl) {
+                        this.checkStatusNow();
+                        return;
+                    }
+
+                    if (typeof MidtransNew3ds === 'undefined') {
+                        this.threeDsUrl = redirectUrl;
+                        this.threeDsOpen = true;
+                        return;
+                    }
+
+                    MidtransNew3ds.authenticate(redirectUrl, {
+                        performAuthentication: (url) => {
+                            this.threeDsUrl = url;
+                            this.threeDsOpen = true;
+                        },
                         onSuccess: () => {
+                            this.threeDsOpen = false;
+                            this.cardSubmitting = false;
+                            this.checkStatusNow();
+                        },
+                        onFailure: () => {
+                            this.threeDsOpen = false;
+                            this.cardSubmitting = false;
                             this.checkStatusNow();
                         },
                         onPending: () => {
+                            this.threeDsOpen = false;
+                            this.cardSubmitting = false;
                             this.checkStatusNow();
-                        },
-                        onError: () => {
-                            this.errorMessage = 'Card payment was not completed. Please try again or choose another method.';
                         },
                         onClose: () => {
+                            this.threeDsOpen = false;
+                            this.cardSubmitting = false;
                             this.checkStatusNow();
-                        },
+                        }
                     });
+                },
+
+                close3dsModal() {
+                    this.threeDsOpen = false;
+                    this.threeDsUrl = '';
+                    this.cardSubmitting = false;
+                    this.checkStatusNow();
                 },
 
                 startPolling() {
@@ -159,6 +381,9 @@
                         } else if (data.is_failed) {
                             this.stopPolling();
                             this.chargeStatus = data.status || 'cancel';
+                            if (data.message) {
+                                this.errorMessage = data.message;
+                            }
                         }
                     } catch (e) {
                         console.error('Polling status error', e);
@@ -169,6 +394,18 @@
                     this.stopPolling();
                     this.loading = true;
                     this.errorMessage = '';
+                    this.cardError = '';
+                    this.threeDsOpen = false;
+                    this.threeDsUrl = '';
+
+                    // If user was only on card input screen and hadn't charged yet, no need to cancel on server
+                    if (this.chargeStatus === 'card_input') {
+                        this.method = '';
+                        this.activeCharge = null;
+                        this.chargeStatus = 'idle';
+                        this.loading = false;
+                        return;
+                    }
 
                     try {
                         await fetch(`/api/customer/orders/${this.transactionId}/cancel-charge`, {
@@ -200,6 +437,7 @@
             csrfToken: {{ \Illuminate\Support\Js::from(csrf_token()) }},
             trackUrl: {{ \Illuminate\Support\Js::from(route('track', ['order' => $transaction->order_number])) }},
             initialState: {{ \Illuminate\Support\Js::from($initialState ?? null) }},
+            customerName: {{ \Illuminate\Support\Js::from(auth()->user()?->name ?? 'Cardholder') }},
         })">
 
         <x-page-header eyebrow="Secure Payment" title="Complete Your Payment" />
@@ -277,9 +515,9 @@
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold text-ink">Credit / Debit Card</span>
-                                        <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">3DS</span>
+                                        <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">3-D Secure</span>
                                     </div>
-                                    <p class="text-xs text-ink/60">Visa, Mastercard, JCB (secure 3D Secure verification)</p>
+                                    <p class="text-xs text-ink/60">Visa, Mastercard, JCB (direct bank-grade encryption)</p>
                                 </div>
                             </div>
                             <x-ui.icon name="chevron-right" class="h-5 w-5 text-ink/30 transition group-hover:translate-x-0.5 group-hover:text-moss" />
@@ -291,7 +529,7 @@
                     </div>
                 </div>
 
-                {{-- Active Charge Screen --}}
+                {{-- Active Charge Screen (Card Input, Generating, Pending, Expired, Settlement) --}}
                 <div x-show="chargeStatus !== 'idle'" x-cloak class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8">
                     {{-- Header with Change Method button --}}
                     <div class="flex items-center justify-between border-b border-blush/80 pb-4">
@@ -300,20 +538,195 @@
                             <h3 class="font-display text-xl font-bold capitalize text-ink"
                                 x-text="method === 'credit_card' || method === 'card' ? 'Credit / Debit Card' : method"></h3>
                         </div>
-                        <button type="button" @click="changeMethod()" :disabled="loading"
+                        <button type="button" @click="changeMethod()" :disabled="loading || cardSubmitting"
                             class="btn-outline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold">
                             <x-ui.icon name="arrow-left" class="h-3.5 w-3.5" />
                             <span>Change method</span>
                         </button>
                     </div>
 
-                    {{-- Loading / Generating state --}}
+                    {{-- Loading / Generating state for non-card methods --}}
                     <div x-show="chargeStatus === 'generating'" class="flex h-64 flex-col items-center justify-center">
                         <div class="h-10 w-10 animate-spin rounded-full border-4 border-moss border-t-transparent"></div>
                         <p class="mt-4 text-sm font-medium text-ink/70">Connecting to Midtrans...</p>
                     </div>
 
-                    {{-- Pending Active Method Display --}}
+                    {{-- Card Input Form (Custom On-Page Card Payment) --}}
+                    <div x-show="chargeStatus === 'card_input'" class="mt-6 space-y-6">
+                        {{-- Visual Card Preview --}}
+                        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-tr from-slate-900 via-emerald-950 to-moss p-6 text-white shadow-xl">
+                            {{-- Decorative light circle --}}
+                            <div class="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+
+                            <div class="flex items-center justify-between">
+                                {{-- Chip Icon --}}
+                                <div class="flex h-9 w-12 items-center justify-center rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 shadow-inner">
+                                    <div class="h-6 w-9 rounded-sm border border-amber-800/40 opacity-80 grid grid-cols-3 gap-0.5 p-0.5">
+                                        <div class="bg-amber-900/30 rounded-xs"></div>
+                                        <div class="bg-amber-900/30 rounded-xs"></div>
+                                        <div class="bg-amber-900/30 rounded-xs"></div>
+                                    </div>
+                                </div>
+
+                                {{-- Brand Logo / Badge --}}
+                                <div class="font-bold tracking-widest text-sm uppercase">
+                                    <template x-if="cardBrand === 'visa'">
+                                        <span class="rounded bg-white/20 px-2.5 py-1 text-xs font-extrabold tracking-wider text-white">VISA</span>
+                                    </template>
+                                    <template x-if="cardBrand === 'mastercard'">
+                                        <div class="flex -space-x-2">
+                                            <div class="h-6 w-6 rounded-full bg-red-500/90"></div>
+                                            <div class="h-6 w-6 rounded-full bg-amber-400/90"></div>
+                                        </div>
+                                    </template>
+                                    <template x-if="cardBrand === 'jcb'">
+                                        <span class="rounded bg-blue-600 px-2.5 py-1 text-[11px] font-extrabold text-white">JCB</span>
+                                    </template>
+                                    <template x-if="cardBrand === 'amex'">
+                                        <span class="rounded bg-sky-500 px-2.5 py-1 text-[11px] font-extrabold text-white">AMEX</span>
+                                    </template>
+                                    <template x-if="cardBrand === 'unknown'">
+                                        <span class="text-xs text-white/50 font-medium">DEBIT / CREDIT</span>
+                                    </template>
+                                </div>
+                            </div>
+
+                            {{-- Card Number Display --}}
+                            <div class="mt-6 font-mono text-lg tracking-widest sm:text-xl"
+                                x-text="cardNumber || '•••• •••• •••• ••••'">
+                            </div>
+
+                            <div class="mt-5 flex items-end justify-between text-xs">
+                                <div>
+                                    <span class="text-[9px] uppercase tracking-wider text-white/60 block">Cardholder</span>
+                                    <span class="font-medium tracking-wide uppercase text-white/90"
+                                        x-text="cardHolder || 'CUSTOMER NAME'"></span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[9px] uppercase tracking-wider text-white/60 block">Expires</span>
+                                    <span class="font-mono font-medium text-white/90"
+                                        x-text="cardExp || 'MM/YY'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Sandbox Test Card Helper (shown only in sandbox / non-production mode) --}}
+                        @if (!($isProduction ?? config('services.midtrans.is_production')))
+                        <div class="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <div class="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-amber-900">
+                                        <x-ui.icon name="info" class="h-4 w-4 text-amber-700" />
+                                        <span>Midtrans Sandbox Test Card</span>
+                                    </div>
+                                    <p class="mt-1 font-mono text-xs text-amber-800">
+                                        Card: <strong class="select-all">4811 1111 1111 1114</strong> &bull; CVV: <strong class="select-all">123</strong> &bull; OTP: <strong class="select-all">112233</strong>
+                                    </p>
+                                </div>
+                                <button type="button" @click="fillTestCard()"
+                                    class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                    <x-ui.icon name="sparkles" class="h-3.5 w-3.5" />
+                                    <span>Auto-Fill Test Card</span>
+                                </button>
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Card Details Input Fields (NO name attributes to ensure PCI compliance) --}}
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-ink">Card Number</label>
+                                <div class="relative mt-1">
+                                    <input type="text"
+                                        inputmode="numeric"
+                                        autocomplete="cc-number"
+                                        placeholder="4000 0000 0000 0000"
+                                        maxlength="19"
+                                        :value="cardNumber"
+                                        @input="formatCardNumber($event)"
+                                        class="w-full rounded-xl border border-blush/80 px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-ink/30 focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss">
+                                    <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <x-ui.icon name="credit-card" class="h-5 w-5 text-ink/30" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-ink">Cardholder Name</label>
+                                <input type="text"
+                                    autocomplete="cc-name"
+                                    placeholder="Name on card"
+                                    x-model="cardHolder"
+                                    class="mt-1 w-full rounded-xl border border-blush/80 px-3.5 py-2.5 text-sm uppercase text-ink placeholder:text-ink/30 focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-ink">Expiration Date</label>
+                                    <input type="text"
+                                        inputmode="numeric"
+                                        autocomplete="cc-exp"
+                                        placeholder="MM / YY"
+                                        maxlength="7"
+                                        :value="cardExp"
+                                        @input="formatCardExpiry($event)"
+                                        class="mt-1 w-full rounded-xl border border-blush/80 px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-ink/30 focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss">
+                                </div>
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <label class="block text-xs font-bold text-ink">CVV / CVC</label>
+                                        <span class="text-[10px] text-ink/40">3-4 digits on back</span>
+                                    </div>
+                                    <div class="relative mt-1">
+                                        <input type="text"
+                                            inputmode="numeric"
+                                            autocomplete="cc-csc"
+                                            placeholder="123"
+                                            maxlength="4"
+                                            :value="cardCvv"
+                                            @input="formatCardCvv($event)"
+                                            class="w-full rounded-xl border border-blush/80 px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-ink/30 focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss">
+                                        <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <x-ui.icon name="lock" class="h-4 w-4 text-ink/30" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Security Notice --}}
+                        <div class="flex items-start gap-2.5 rounded-xl bg-petal/20 p-3 text-[11px] text-ink/70">
+                            <x-ui.icon name="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                            <div>
+                                <span class="font-bold text-ink">Bank-Grade 3-D Secure Protection:</span>
+                                <span> Your sensitive card data is encrypted and transmitted directly from your browser to Midtrans (PCI-DSS Level 1 certified). FloristSync never stores your card details.</span>
+                            </div>
+                        </div>
+
+                        {{-- Error Alert --}}
+                        <div x-show="cardError" x-cloak class="rounded-xl bg-red-50 p-3 text-xs text-red-700">
+                            <span x-text="cardError"></span>
+                        </div>
+
+                        {{-- Pay Button --}}
+                        <button type="button" @click="submitCardPayment()" :disabled="cardSubmitting || remainingSeconds <= 0"
+                            class="btn-primary w-full py-3.5 text-base font-semibold shadow-md flex items-center justify-center gap-2">
+                            <template x-if="!cardSubmitting">
+                                <span class="flex items-center gap-2">
+                                    <x-ui.icon name="lock" class="h-4 w-4" />
+                                    <span>Pay {{ rupiah($transaction->total) }}</span>
+                                </span>
+                            </template>
+                            <template x-if="cardSubmitting">
+                                <span class="flex items-center gap-2">
+                                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                                    <span>Securing Card Payment...</span>
+                                </span>
+                            </template>
+                        </button>
+                    </div>
+
+                    {{-- Pending Active Method Display (QRIS, GoPay, ShopeePay, or 3DS In Progress) --}}
                     <div x-show="chargeStatus === 'pending'" class="mt-6">
                         {{-- QRIS View --}}
                         <div x-show="method === 'qris'">
@@ -377,20 +790,34 @@
                             </div>
                         </div>
 
-                        {{-- Credit Card View --}}
-                        <div x-show="method === 'credit_card' || method === 'card'" class="flex flex-col items-center text-center">
+                        {{-- Credit Card View: 3DS Verification In Progress --}}
+                        <div x-show="method === 'credit_card' || method === 'card'" class="flex flex-col items-center text-center py-4">
                             <div class="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-200">
-                                <x-ui.icon name="credit-card" class="h-10 w-10" />
+                                <x-ui.icon name="shield-check" class="h-10 w-10 text-blue-600" />
                             </div>
-                            <h4 class="mt-4 text-lg font-bold text-ink">Card Payment Window</h4>
+                            <h4 class="mt-4 text-lg font-bold text-ink">Bank Authentication in Progress</h4>
                             <p class="mt-1 max-w-sm text-xs text-ink/60">
-                                A secure payment window powered by Midtrans 3D Secure is opened. If you closed it, click below to reopen.
+                                Complete the 3-D Secure verification with your bank. If the verification window was closed, tap below to resume.
                             </p>
-                            <button type="button" @click="payWithCard()"
-                                class="btn-primary mt-5 inline-flex w-full items-center justify-center gap-2 py-3.5 text-base font-semibold shadow-md">
-                                <x-ui.icon name="lock" class="h-4 w-4" />
-                                <span>Pay with Card</span>
-                            </button>
+
+                            <template x-if="activeCharge && activeCharge.redirect_url">
+                                <div class="mt-5 w-full max-w-sm space-y-2">
+                                    <button type="button" @click="handle3ds(activeCharge.redirect_url)"
+                                        class="btn-primary inline-flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold shadow-md">
+                                        <x-ui.icon name="lock" class="h-4 w-4" />
+                                        <span>Complete 3-D Secure Verification</span>
+                                    </button>
+                                    <button type="button" @click="chargeStatus = 'card_input'; cardSubmitting = false;"
+                                        class="btn-outline inline-flex w-full items-center justify-center gap-1.5 py-2 text-xs font-semibold">
+                                        <span>Use a different card</span>
+                                    </button>
+                                </div>
+                            </template>
+
+                            <div class="mt-5 flex items-center gap-2 text-xs text-gray-600">
+                                <span class="inline-block h-2 w-2 animate-ping rounded-full bg-moss"></span>
+                                <span>Waiting for bank confirmation...</span>
+                            </div>
                         </div>
 
                         {{-- Manual Refresh button --}}
@@ -423,13 +850,21 @@
                             <x-ui.icon name="alert-circle" class="h-8 w-8" />
                         </div>
                         <h4 class="mt-4 text-lg font-bold text-red-800"
-                            x-text="chargeStatus === 'expire' ? 'Payment Expired' : (chargeStatus === 'cancel' ? 'Payment Cancelled' : 'Payment Error')"></h4>
+                            x-text="chargeStatus === 'expire' ? 'Payment Expired' : (chargeStatus === 'cancel' ? 'Payment Cancelled' : (chargeStatus === 'deny' ? 'Payment Declined by Bank' : 'Payment Error'))"></h4>
                         <p class="mt-1 max-w-sm text-xs text-red-600"
                             x-text="errorMessage || (chargeStatus === 'expire' ? 'The payment time for this order has expired.' : 'Your payment could not be processed.')"></p>
 
                         <div class="mt-6 flex w-full flex-col gap-2 sm:flex-row">
+                            <template x-if="(method === 'credit_card' || method === 'card') && chargeStatus !== 'expire' && remainingSeconds > 0">
+                                <button type="button" @click="retryCardInput()"
+                                    class="btn-primary w-full py-2.5 text-sm">
+                                    Re-enter Card / CVV
+                                </button>
+                            </template>
                             <button type="button" @click="changeMethod()"
-                                class="btn-primary w-full py-2.5 text-sm" x-show="remainingSeconds > 0">
+                                class="w-full py-2.5 text-sm"
+                                :class="(method === 'credit_card' || method === 'card') && chargeStatus !== 'expire' ? 'btn-outline' : 'btn-primary'"
+                                x-show="remainingSeconds > 0">
                                 Try Another Method
                             </button>
                             <a href="{{ route('track') }}" class="btn-outline w-full py-2.5 text-sm text-center">
@@ -502,6 +937,51 @@
                             &larr; View all my orders
                         </a>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- 3-D Secure Authentication Modal --}}
+        <div x-show="threeDsOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+            {{-- Backdrop --}}
+            <div class="fixed inset-0 bg-ink/60 backdrop-blur-sm transition-opacity"
+                @click="close3dsModal()"></div>
+
+            {{-- Modal Window --}}
+            <div class="relative w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-ink/10">
+                {{-- Header --}}
+                <div class="flex items-center justify-between border-b border-blush/80 px-6 py-4 bg-cream/40">
+                    <div class="flex items-center gap-2.5">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                            <x-ui.icon name="lock" class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-ink">Bank Authentication (3-D Secure)</h3>
+                            <p class="text-[11px] text-ink/60">Complete security verification with your card issuer</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="close3dsModal()"
+                        class="rounded-xl p-1.5 text-ink/40 hover:bg-petal/30 hover:text-ink">
+                        <x-ui.icon name="x" class="h-5 w-5" />
+                    </button>
+                </div>
+
+                {{-- iFrame Content Container --}}
+                <div class="relative bg-white" style="height: 500px;">
+                    <iframe :src="threeDsUrl"
+                        class="h-full w-full border-0"
+                        allow="payment"
+                        sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-modals">
+                    </iframe>
+                </div>
+
+                {{-- Footer --}}
+                <div class="border-t border-blush/80 px-6 py-3 bg-cream/20 flex items-center justify-between text-xs text-ink/60">
+                    <span>Enter OTP or verification code sent by your bank.</span>
+                    <button type="button" @click="close3dsModal()"
+                        class="font-semibold text-moss hover:underline">
+                        Cancel & Check Status
+                    </button>
                 </div>
             </div>
         </div>
