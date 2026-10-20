@@ -30,21 +30,36 @@ class NewPasswordController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        /** @var User|null $resetUser */
+        $resetUser = null;
+
         $status = Password::reset(
-            [...$request->only('email', 'password', 'password_confirmation', 'token'), 'role_id' => Role::where('role_name', Role::MEMBER)->value('id')],
-            function (User $user) use ($request) {
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user) use ($request, &$resetUser) {
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();
 
                 event(new PasswordReset($user));
+                $resetUser = $user;
             }
         );
 
-        return $status == Password::PASSWORD_RESET
-                    ? redirect()->route('login')->with('status', __($status))
-                    : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+        if ($status == Password::PASSWORD_RESET) {
+            $resetUser ??= User::where('email', $request->input('email'))->first();
+            $resetUser?->loadMissing('role');
+
+            $targetRoute = match (true) {
+                $resetUser?->hasRole(...Role::POS_ROLES) => 'cashier.login',
+                $resetUser?->hasRole(...Role::ADMIN_PANEL_ROLES) => 'admin.login',
+                default => 'login',
+            };
+
+            return redirect()->route($targetRoute)->with('status', __($status));
+        }
+
+        return back()->withInput($request->only('email'))
+            ->withErrors(['email' => __($status)]);
     }
 }

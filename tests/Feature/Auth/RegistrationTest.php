@@ -36,4 +36,42 @@ class RegistrationTest extends TestCase
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
     }
+
+    public function test_registration_with_existing_member_email_is_rejected_with_neutral_message(): void
+    {
+        \App\Models\User::factory()->create(['email' => 'existing@example.com']);
+
+        $response = $this->post('/register', [
+            'name' => 'Another User',
+            'email' => 'existing@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertSessionHasErrors([
+            'email' => 'This email is already registered. Try logging in or use another email.',
+        ]);
+        $this->assertGuest();
+    }
+
+    public function test_registration_with_existing_staff_email_is_rejected_neutrally_without_mentioning_roles(): void
+    {
+        $adminRole = \App\Models\Role::where('role_name', \App\Models\Role::ADMIN_ORDER)->firstOrFail();
+        \App\Models\User::factory()->create([
+            'email' => 'admin@floristsync.test',
+            'role_id' => $adminRole->id,
+        ]);
+
+        $response = $this->post('/register', [
+            'name' => 'Impostor Admin',
+            'email' => 'admin@floristsync.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $response->assertSessionHasErrors([
+            'email' => 'This email is already registered. Try logging in or use another email.',
+        ]);
+        $this->assertGuest();
+    }
 }
