@@ -34,7 +34,7 @@ class DashboardService
     {
         return [
             'totalProducts' => Product::count(),
-            'outOfStock' => Product::where('stock', 0)->count(),
+            'outOfStock' => Product::outOfStock()->count(),
             'lowStock' => $this->inventory->lowStock(),
         ];
     }

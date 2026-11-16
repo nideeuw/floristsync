@@ -20,8 +20,8 @@ class PosController extends Controller
     {
         return response()->json([
             'categories' => Category::active()->orderBy('category_name')->get(['id', 'category_name']),
-            'data' => Product::available()->orderBy('product_name')
-                ->get(['id', 'category_id', 'product_name', 'price', 'image', 'stock']),
+            'data' => Product::available()->join('view_stock', 'view_stock.product_id', '=', 'products.id')->orderBy('products.product_name')
+                ->get(['products.id', 'products.category_id', 'products.product_name', 'products.price', 'products.image', 'view_stock.stock']),
         ]);
     }
 
@@ -48,7 +48,7 @@ class PosController extends Controller
 
                 // If starts with '0' or '+', it's a phone search
                 if (str_starts_with($q, '0') || str_starts_with($q, '+')) {
-                    $sub->where('phone', 'like', "%{$q}%");
+                    $sub->where('phone', 'ilike', "%{$q}%");
 
                     return;
                 }
@@ -57,15 +57,15 @@ class PosController extends Controller
                 if (ctype_digit($q)) {
                     $sub->where('id', (int) $q);
                     if (strlen($q) >= 4) {
-                        $sub->orWhere('phone', 'like', "%{$q}%");
+                        $sub->orWhere('phone', 'ilike', "%{$q}%");
                     }
 
                     return;
                 }
 
                 // Otherwise, search by name or phone
-                $sub->where('phone', 'like', "%{$q}%")
-                    ->orWhere('name', 'like', "%{$q}%");
+                $sub->where('phone', 'ilike', "%{$q}%")
+                    ->orWhere('name', 'ilike', "%{$q}%");
             });
         }
 

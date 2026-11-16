@@ -6,30 +6,35 @@ use App\Models\Product;
 use App\Models\Stock;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class InventoryService
 {
     public function __construct(private NotificationService $notifications) {}
 
+    /** Current stock of one product, read from view_stock. */
+    public function currentStock(int $productId): int
+    {
+        return (int) DB::table('view_stock')->where('product_id', $productId)->value('stock');
+    }
+
     public function reduce(Product $product, int $qty, string $notes = 'Sale'): void
     {
-        $updated = Product::whereKey($product->id)
-            ->where('stock', '>=', $qty)
-            ->decrement('stock', $qty, $this->auditFields());
+        DB::transaction(function () use ($product, $qty, $notes) {
+            $this->lockProduct($product->id);
 
-        if (! $updated) {
-            throw new DomainException("Insufficient stock for {$product->product_name}.");
-        }
+            if ($this->currentStock($product->id) < $qty) {
+                throw new DomainException("Insufficient stock for {$product->product_name}.");
+            }
 
-        $this->log($product->id, -$qty, 'out', $notes);
+            $this->log($product->id, -$qty, 'out', $notes);
+        });
+
         $this->notifyIfLow($product);
     }
 
     public function add(Product $product, int $qty, string $changeType = 'in', string $notes = 'Restock'): void
     {
-        Product::whereKey($product->id)->increment('stock', $qty, $this->auditFields());
-
         $this->log($product->id, $qty, $changeType, $notes);
     }
 
@@ -45,29 +50,37 @@ class InventoryService
             return;
         }
 
-        $qty = abs($change);
+        DB::transaction(function () use ($product, $change, $notes) {
+            $this->lockProduct($product->id);
 
-        $updated = Product::whereKey($product->id)
-            ->where('stock', '>=', $qty)
-            ->decrement('stock', $qty, $this->auditFields());
+            if ($this->currentStock($product->id) < abs($change)) {
+                throw new DomainException("Stock of {$product->product_name} cannot go below zero.");
+            }
 
-        if (! $updated) {
-            throw new DomainException("Stock of {$product->product_name} cannot go below zero.");
-        }
+            $this->log($product->id, $change, 'adjustment', $notes);
+        });
 
-        $this->log($product->id, $change, 'adjustment', $notes);
         $this->notifyIfLow($product);
     }
 
     public function lowStock(): Collection
     {
-        return Product::active()->lowStock()->orderBy('stock')
-            ->get(['id', 'product_name', 'stock']);
+        return Product::active()
+            ->join('view_stock', 'view_stock.product_id', '=', 'products.id')
+            ->where('view_stock.stock', '<=', config('floristsync.low_stock_threshold'))
+            ->orderBy('view_stock.stock')
+            ->get(['products.id', 'products.product_name', 'view_stock.stock']);
+    }
+
+    /** Row lock so two buyers cannot take the last item at the same time. */
+    private function lockProduct(int $productId): void
+    {
+        Product::whereKey($productId)->lockForUpdate()->first();
     }
 
     private function notifyIfLow(Product $product): void
     {
-        $current = $product->fresh();
+        $current = Product::withStock()->find($product->id);
 
         if ($current) {
             $this->notifications->notifyLowStock($current);
@@ -83,10 +96,5 @@ class InventoryService
             'notes' => $notes,
             'date' => now(),
         ]);
-    }
-
-    private function auditFields(): array
-    {
-        return ['modified_by' => Auth::id(), 'modified_on' => now()];
     }
 }

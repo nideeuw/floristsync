@@ -16,7 +16,7 @@ class HomeController extends Controller
                 ->withCount(['products' => fn ($q) => $q->available()])
                 ->orderBy('category_name')
                 ->get(),
-            'featured' => Product::with('category')->available()->latest('id')->take(8)->get(),
+            'featured' => Product::withStock()->with('category')->available()->latest('id')->take(8)->get(),
         ]);
     }
 }

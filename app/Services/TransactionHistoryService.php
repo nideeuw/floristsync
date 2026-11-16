@@ -57,7 +57,7 @@ class TransactionHistoryService
         }
 
         return $query->where(function (Builder $q) use ($term) {
-            $q->whereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'like', '%' . $term . '%'));
+            $q->whereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'ilike', '%' . $term . '%'));
 
             if (preg_match('/^(?:POS-)?0*(\d+)$/i', $term, $match)) {
                 $q->orWhere(function (Builder $pos) use ($match) {

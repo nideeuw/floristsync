@@ -19,8 +19,8 @@ class ProductController extends Controller
 
     public function index(Request $request): View
     {
-        $products = Product::with('category')
-            ->when($request->query('q'), fn($q, $v) => $q->where('product_name', 'like', "%{$v}%"))
+        $products = Product::withStock()->with('category')
+            ->when($request->query('q'), fn($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
             ->when($request->query('category'), fn($q, $v) => $q->where('category_id', $v))
             ->when($request->query('status'), fn($q, $v) => $q->where('status', $v))
             ->orderBy('product_name')
@@ -52,7 +52,7 @@ class ProductController extends Controller
             'status' => $data['status'],
             'is_active' => $request->boolean('is_active'),
             'image' => $request->file('image')?->store('products', 'public'),
-            'stock' => 0,
+            // stock is stored in the stocks table (see InventoryService)
         ]);
 
         if (($data['stock'] ?? 0) > 0) {

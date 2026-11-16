@@ -31,7 +31,7 @@ class OrderController extends Controller
             ->when($request->query('fulfillment') === 'delivery', fn($q) => $q->whereNotNull('courier'))
             ->when($request->query('fulfillment') === 'pickup', fn($q) => $q->whereNull('courier'))
             ->when($request->query('q'), fn($q, $v) => $q->where(function ($w) use ($v) {
-                $w->whereHas('payments', fn($p) => $p->where('midtrans_order_id', 'like', "%{$v}%"));
+                $w->whereHas('payments', fn($p) => $p->where('midtrans_order_id', 'ilike', "%{$v}%"));
 
                 if (ctype_digit($v)) {
                     $w->orWhere('id', (int) $v);

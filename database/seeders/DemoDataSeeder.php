@@ -172,7 +172,7 @@ class DemoDataSeeder extends Seeder
                     'description' => $description,
                     'price' => $price,
                     'image' => $image,
-                    'stock' => 0,
+                    // stock is added below through InventoryService
                     'status' => Product::STATUS_AVAILABLE,
                 ]
             );
@@ -281,7 +281,7 @@ class DemoDataSeeder extends Seeder
                 ]);
 
                 if ($def['status'] !== Transaction::CANCELLED) {
-                    Product::whereKey($line['product']->id)->decrement('stock', $line['qty']);
+                    \App\Models\Stock::create(['product_id' => $line['product']->id, 'quantity_change' => -$line['qty'], 'change_type' => 'out', 'notes' => 'Demo sale', 'date' => $date]);
                 }
             }
 

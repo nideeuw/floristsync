@@ -32,8 +32,20 @@ class ProductFactory extends Factory
             'description' => fake()->paragraph(2),
             'price' => fake()->numberBetween(8, 80) * 10000, // Rp 80.000 - Rp 800.000
             'image' => null,
-            'stock' => fake()->numberBetween(0, 30),
             'status' => Product::STATUS_AVAILABLE,
         ];
+    }
+
+    /** Stock lives in the stocks table, so every new product gets an initial stock row. */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Product $product) {
+            $product->stocks()->create([
+                'quantity_change' => fake()->numberBetween(0, 30),
+                'change_type' => 'in',
+                'notes' => 'Initial stock (factory)',
+                'date' => now(),
+            ]);
+        });
     }
 }

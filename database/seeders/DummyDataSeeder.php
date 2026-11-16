@@ -38,6 +38,6 @@ class DummyDataSeeder extends Seeder
         }
 
         // Make a couple of products sold out, to test the "Sold out" UI.
-        Product::inRandomOrder()->take(2)->get()->each->update(['stock' => 0]);
+        Product::inRandomOrder()->take(2)->get()->each(fn (Product $p) => $p->stocks()->create(['quantity_change' => -$p->stock, 'change_type' => 'adjustment', 'notes' => 'Sold out (dummy)', 'date' => now()]));
     }
 }

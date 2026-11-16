@@ -17,8 +17,8 @@ class RestockController extends Controller
     public function index(Request $request): View
     {
         return view('admin.stock.restock', [
-            'products' => Product::active()->orderBy('product_name')
-                ->get(['id', 'product_name', 'stock']),
+            'products' => Product::active()->withStock()->orderBy('product_name')
+                ->get(),
         ]);
     }
 

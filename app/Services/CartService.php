@@ -64,7 +64,7 @@ class CartService
 
         return (int) Product::available()
             ->whereIn('id', array_keys($cart))
-            ->get(['id', 'stock'])
+            ->withStock()->get()
             ->sum(fn (Product $product) => min($cart[$product->id], $product->stock));
     }
 
@@ -166,11 +166,11 @@ class CartService
             return collect();
         }
 
-        return Product::with('category')
+        return Product::withStock()->with('category')
             ->available()
             ->whereIn('id', array_keys($cart))
             ->get()
-            ->map(function (Product $product) use ($cart) {
+            ->map(function ($product) use ($cart) {
                 $qty = min($cart[$product->id], $product->stock);
 
                 return (object) [
@@ -216,7 +216,7 @@ class CartService
             return;
         }
 
-        $products = Product::whereIn('id', array_keys($guestCart))->get()->keyBy('id');
+        $products = Product::withStock()->whereIn('id', array_keys($guestCart))->get()->keyBy('id');
 
         foreach ($guestCart as $productId => $guestQty) {
             $guestQty = (int) $guestQty;

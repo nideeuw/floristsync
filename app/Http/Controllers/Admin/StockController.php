@@ -12,10 +12,10 @@ class StockController extends Controller
 {
     public function index(Request $request): View
     {
-        $products = Product::with('category')
-            ->when($request->query('q'), fn($q, $v) => $q->where('product_name', 'like', "%{$v}%"))
+        $products = Product::withStock()->with('category')
+            ->when($request->query('q'), fn($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
             ->when($request->query('category'), fn($q, $v) => $q->where('category_id', $v))
-            ->orderBy('stock')
+            ->orderBy('view_stock.stock')
             ->paginate(10)
             ->withQueryString();
 

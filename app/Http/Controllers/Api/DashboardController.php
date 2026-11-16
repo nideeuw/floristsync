@@ -11,16 +11,14 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    /** Chart.js-ready: POS vs online revenue per day. */
+    /** Chart.js-ready: POS vs online revenue per day (source: view_sales_daily). */
     public function revenue(Request $request): JsonResponse
     {
         $days = min(max($request->integer('days', 7), 1), 90);
         $start = now()->subDays($days - 1)->startOfDay();
 
-        $rows = Transaction::successful()
-            ->where('created_on', '>=', $start)
-            ->selectRaw('DATE(created_on) as sales_date, transaction_type, SUM(total) as revenue')
-            ->groupBy('sales_date', 'transaction_type')
+        $rows = DB::table('view_sales_daily')
+            ->where('day', '>=', $start->toDateString())
             ->get();
 
         $labels = $pos = $online = [];
@@ -28,8 +26,8 @@ class DashboardController extends Controller
         for ($i = 0; $i < $days; $i++) {
             $date = $start->copy()->addDays($i)->toDateString();
             $labels[] = $date;
-            $pos[] = (int) $rows->where('sales_date', $date)->where('transaction_type', Transaction::TYPE_POS)->sum('revenue');
-            $online[] = (int) $rows->where('sales_date', $date)->where('transaction_type', Transaction::TYPE_ONLINE)->sum('revenue');
+            $pos[] = (int) $rows->where('day', $date)->where('transaction_type', Transaction::TYPE_POS)->sum('revenue');
+            $online[] = (int) $rows->where('day', $date)->where('transaction_type', Transaction::TYPE_ONLINE)->sum('revenue');
         }
 
         return response()->json([
@@ -42,15 +40,12 @@ class DashboardController extends Controller
         ]);
     }
 
+    /** Units sold per category (source: view_product_sales). */
     public function topCategories(): JsonResponse
     {
-        $rows = DB::table('transaction_details as d')
-            ->join('transactions as t', 't.id', '=', 'd.transaction_id')
-            ->join('products as p', 'p.id', '=', 'd.product_id')
-            ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->whereNotIn('t.status', [Transaction::PENDING_PAYMENT, Transaction::CANCELLED])
-            ->selectRaw('c.category_name as label, SUM(d.qty) as total_qty')
-            ->groupBy('c.category_name')
+        $rows = DB::table('view_product_sales')
+            ->selectRaw('category_name as label, SUM(total_qty) as total_qty')
+            ->groupBy('category_name')
             ->orderByDesc('total_qty')
             ->get();
 

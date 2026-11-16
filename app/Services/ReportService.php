@@ -58,13 +58,10 @@ class ReportService
 
     public function topProducts(Carbon $from, Carbon $to, int $limit = 10): Collection
     {
-        return DB::table('transaction_details as d')
-            ->join('transactions as t', 't.id', '=', 'd.transaction_id')
-            ->join('products as p', 'p.id', '=', 'd.product_id')
-            ->whereNotIn('t.status', [Transaction::PENDING_PAYMENT, Transaction::CANCELLED])
-            ->whereBetween('t.created_on', [$from, $to])
-            ->selectRaw('p.id, p.product_name, SUM(d.qty) as total_qty, SUM(d.subtotal) as total_revenue')
-            ->groupBy('p.id', 'p.product_name')
+        return DB::table('view_product_sales')
+            ->whereBetween('day', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('product_id as id, product_name, SUM(total_qty) as total_qty, SUM(total_revenue) as total_revenue')
+            ->groupBy('product_id', 'product_name')
             ->orderByDesc('total_qty')
             ->limit($limit)
             ->get();
@@ -235,58 +232,57 @@ class ReportService
             ->first();
     }
 
+    /** Source: view_sales_daily */
     private function salesQuery(array $f): QueryBuilder
     {
-        $pos = Transaction::TYPE_POS;
-        $online = Transaction::TYPE_ONLINE;
-
-        return DB::table('transactions as t')
-            ->whereNotIn('t.status', [Transaction::PENDING_PAYMENT, Transaction::CANCELLED])
-            ->whereBetween('t.created_on', [$f['from'], $f['to']])
-            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('t.transaction_type', $v))
-            ->selectRaw("DATE(t.created_on) as day, COUNT(*) as orders, COALESCE(SUM(CASE WHEN t.transaction_type = '{$pos}' THEN t.total ELSE 0 END), 0) as pos_revenue, COALESCE(SUM(CASE WHEN t.transaction_type = '{$online}' THEN t.total ELSE 0 END), 0) as online_revenue, COALESCE(SUM(t.total), 0) as revenue")
+        return DB::table('view_sales_daily')
+            ->whereBetween('day', [$f['from']->toDateString(), $f['to']->toDateString()])
+            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('transaction_type', $v))
+            ->selectRaw(
+                'day, SUM(orders) as orders, '
+                . 'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as pos_revenue, '
+                . 'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as online_revenue, '
+                . 'SUM(revenue) as revenue',
+                [Transaction::TYPE_POS, Transaction::TYPE_ONLINE]
+            )
             ->groupBy('day')
             ->orderByDesc('day');
     }
 
+    /** Source: view_product_sales */
     private function productsQuery(array $f): QueryBuilder
     {
-        return DB::table('transaction_details as d')
-            ->join('transactions as t', 't.id', '=', 'd.transaction_id')
-            ->join('products as p', 'p.id', '=', 'd.product_id')
-            ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->whereNotIn('t.status', [Transaction::PENDING_PAYMENT, Transaction::CANCELLED])
-            ->whereBetween('t.created_on', [$f['from'], $f['to']])
-            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('t.transaction_type', $v))
-            ->when($f['category'] ?? null, fn ($q, $v) => $q->where('p.category_id', $v))
-            ->selectRaw('p.id, p.product_name, c.category_name, SUM(d.qty) as total_qty, SUM(d.subtotal) as total_revenue')
-            ->groupBy('p.id', 'p.product_name', 'c.category_name')
+        return DB::table('view_product_sales')
+            ->whereBetween('day', [$f['from']->toDateString(), $f['to']->toDateString()])
+            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('transaction_type', $v))
+            ->when($f['category'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
+            ->selectRaw('product_id as id, product_name, category_name, SUM(total_qty) as total_qty, SUM(total_revenue) as total_revenue')
+            ->groupBy('product_id', 'product_name', 'category_name')
             ->orderByDesc('total_qty')
-            ->orderBy('p.product_name');
+            ->orderBy('product_name');
     }
 
+    /** Source: view_stock_report */
     private function stockQuery(array $f): QueryBuilder
     {
         $threshold = (int) config('floristsync.low_stock_threshold');
 
-        return DB::table('products as p')
-            ->join('categories as c', 'c.id', '=', 'p.category_id')
-            ->where('p.is_active', true)
-            ->when($f['category'] ?? null, fn ($q, $v) => $q->where('p.category_id', $v))
-            ->when(! empty($f['low']), fn ($q) => $q->where('p.stock', '<=', $threshold))
-            ->selectRaw("p.id, p.product_name, c.category_name, p.stock, CASE WHEN p.stock <= 0 THEN 'Out of stock' WHEN p.stock <= {$threshold} THEN 'Low stock' ELSE 'In stock' END as stock_status")
-            ->orderBy('p.stock')
-            ->orderBy('p.product_name');
+        return DB::table('view_stock_report')
+            ->where('is_active', true)
+            ->when($f['category'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
+            ->when(! empty($f['low']), fn ($q) => $q->where('stock', '<=', $threshold))
+            ->selectRaw("product_id as id, product_name, category_name, stock, CASE WHEN stock <= 0 THEN 'Out of stock' WHEN stock <= {$threshold} THEN 'Low stock' ELSE 'In stock' END as stock_status")
+            ->orderBy('stock')
+            ->orderBy('product_name');
     }
 
+    /** Source: view_cancellation */
     private function cancellationsQuery(array $f): QueryBuilder
     {
-        return DB::table('transactions as t')
-            ->leftJoin('users as u', 'u.id', '=', 't.cancelled_by')
-            ->where('t.status', Transaction::CANCELLED)
-            ->whereRaw('COALESCE(t.cancelled_at, t.created_on) BETWEEN ? AND ?', [$f['from'], $f['to']])
-            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('t.transaction_type', $v))
-            ->selectRaw("t.id, COALESCE((SELECT pm.midtrans_order_id FROM payments pm WHERE pm.transaction_id = t.id ORDER BY pm.id DESC LIMIT 1), CONCAT('POS-', LPAD(t.id, 6, '0'))) as order_number, t.transaction_type, t.cancel_reason, u.name as cancelled_by_name, COALESCE(t.cancelled_at, t.created_on) as cancelled_time, t.total")
+        return DB::table('view_cancellation')
+            ->whereBetween('cancelled_time', [$f['from'], $f['to']])
+            ->when($f['type'] ?? null, fn ($q, $v) => $q->where('transaction_type', $v))
+            ->select('id', 'order_number', 'transaction_type', 'cancel_reason', 'cancelled_by_name', 'cancelled_time', 'total')
             ->orderByDesc('cancelled_time');
     }
 }

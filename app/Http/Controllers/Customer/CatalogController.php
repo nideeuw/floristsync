@@ -14,10 +14,10 @@ class CatalogController extends Controller
     {
         $sort = $request->query('sort', 'newest');
 
-        $products = Product::with('category')
+        $products = Product::withStock()->with('category')
             ->available()
             ->when($request->query('category'), fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->query('q'), fn ($q, $v) => $q->where('product_name', 'like', "%{$v}%"))
+            ->when($request->query('q'), fn ($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
             ->when($sort === 'price_asc', fn ($q) => $q->orderBy('price'))
             ->when($sort === 'price_desc', fn ($q) => $q->orderByDesc('price'))
             ->when($sort === 'name', fn ($q) => $q->orderBy('product_name'))
@@ -39,7 +39,7 @@ class CatalogController extends Controller
 
         return view('customer.show', [
             'product' => $product,
-            'related' => Product::with('category')
+            'related' => Product::withStock()->with('category')
                 ->available()
                 ->where('category_id', $product->category_id)
                 ->whereKeyNot($product->id)

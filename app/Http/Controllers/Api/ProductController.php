@@ -14,7 +14,7 @@ class ProductController extends Controller
         $products = Product::with('category:id,category_name')
             ->available()
             ->when($request->query('category_id'), fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->query('q'), fn ($q, $v) => $q->where('product_name', 'like', "%{$v}%"))
+            ->when($request->query('q'), fn ($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
             ->orderBy('product_name')
             ->paginate(min($request->integer('per_page', 12), 50));
 

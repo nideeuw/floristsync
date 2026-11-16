@@ -39,7 +39,7 @@ class StaffService
             ->when($filters['status'] ?? null, fn (Builder $q, $value) => $q->where('is_active', $value === 'active'))
             ->when($filters['q'] ?? null, function (Builder $q, $value) {
                 $term = '%' . trim($value) . '%';
-                $q->where(fn (Builder $w) => $w->where('name', 'like', $term)->orWhere('email', 'like', $term));
+                $q->where(fn (Builder $w) => $w->where('name', 'ilike', $term)->orWhere('email', 'ilike', $term));
             })
             ->orderByDesc('is_active')
             ->orderBy('name')

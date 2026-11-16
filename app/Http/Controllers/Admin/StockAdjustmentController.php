@@ -18,8 +18,8 @@ class StockAdjustmentController extends Controller
     public function index(Request $request): View
     {
         return view('admin.stock.adjust', [
-            'products' => Product::active()->orderBy('product_name')
-                ->get(['id', 'product_name', 'stock']),
+            'products' => Product::active()->withStock()->orderBy('product_name')
+                ->get(),
         ]);
     }
 
