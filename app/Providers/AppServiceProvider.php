@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Mail\Transport\GmailScriptTransport;
 use App\View\Composers\MenuComposer;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Mail::extend('gmailscript', function (array $config) {
+            return new GmailScriptTransport((string) $config['url'], (string) $config['secret']);
+        });
+
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             return rtrim((string) config('app.url'), '/') . route('password.reset', [
                 'token' => $token,

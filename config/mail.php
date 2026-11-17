@@ -49,6 +49,12 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        'gmailscript' => [
+            'transport' => 'gmailscript',
+            'url' => env('MAIL_SCRIPT_URL'),
+            'secret' => env('MAIL_SCRIPT_SECRET'),
+        ],
+
         'ses' => [
             'transport' => 'ses',
         ],
