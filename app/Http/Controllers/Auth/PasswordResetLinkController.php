@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class PasswordResetLinkController extends Controller
 {
@@ -29,9 +30,16 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        try {
+            $status = Password::sendResetLink(
+                $request->only('email')
+            );
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->withInput($request->only('email'))
+                ->withErrors(['email' => 'We could not send the email right now. Please try again in a few minutes.']);
+        }
 
         if ($status === Password::RESET_THROTTLED) {
             $throttle = (int) config('auth.passwords.users.throttle', 60);
@@ -44,8 +52,6 @@ class PasswordResetLinkController extends Controller
                 ->withErrors(['email' => "Please wait {$remaining} seconds before retrying."]);
         }
 
-        // Prevent email enumeration: return the same neutral success message
-        // whether the user was found or not.
-        return back()->with('status', __(Password::RESET_LINK_SENT));
+        return back()->with('status', 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.');
     }
 }
