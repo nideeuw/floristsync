@@ -51,7 +51,7 @@ return [
 
         'gmailscript' => [
             'transport' => 'gmailscript',
-            'url' => env('MAIL_SCRIPT_URL'),
+            'script_url' => env('MAIL_SCRIPT_URL'),
             'secret' => env('MAIL_SCRIPT_SECRET'),
         ],
 

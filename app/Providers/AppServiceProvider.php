@@ -26,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Mail::extend('gmailscript', function (array $config) {
-            return new GmailScriptTransport((string) $config['url'], (string) $config['secret']);
+            return new GmailScriptTransport((string) $config['script_url'], (string) $config['secret']);
         });
 
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
