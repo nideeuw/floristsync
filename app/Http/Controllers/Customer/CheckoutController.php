@@ -9,6 +9,8 @@ use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use RuntimeException;
 
@@ -58,7 +60,7 @@ class CheckoutController extends Controller
         ]);
     }
 
-    public function store(Request $request): View|RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
@@ -73,6 +75,24 @@ class CheckoutController extends Controller
             'selected' => ['nullable'],
         ]);
 
+        $userId = $request->user()->id;
+
+        // One checkout at a time per member: a double click or a second tab must not create two orders.
+        $lock = Cache::lock("checkout:{$userId}", 10);
+
+        if (! $lock->get()) {
+            return back()->withInput()->with('error', 'Your order is already being placed. Please wait a moment.');
+        }
+
+        try {
+            return $this->placeOrder($request, $data, $userId);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function placeOrder(Request $request, array $data, int $userId): RedirectResponse
+    {
         $rawCart = $this->cart->raw();
 
         if (empty($rawCart)) {
@@ -103,6 +123,23 @@ class CheckoutController extends Controller
             return redirect()->route('cart')->with('error', 'Please select at least one item to check out.');
         }
 
+        // Stock is held while an order waits for payment, so one member may only have a few unpaid orders.
+        $max = (int) config('floristsync.max_pending_orders');
+
+        if ($max > 0) {
+            $pending = Transaction::where('user_id', $userId)
+                ->where('transaction_type', Transaction::TYPE_ONLINE)
+                ->where('status', Transaction::PENDING_PAYMENT)
+                ->count();
+
+            if ($pending >= $max) {
+                return redirect()->route('track')->with(
+                    'error',
+                    "You have {$pending} unpaid ".Str::plural('order', $pending).'. Please pay or cancel one first.'
+                );
+            }
+        }
+
         $lines = $items
             ->map(fn ($line) => ['product_id' => $line->product->id, 'qty' => $line->qty])
             ->all();
@@ -125,7 +162,7 @@ class CheckoutController extends Controller
                     'courier' => $isDelivery ? $data['courier'] : null,
                     'service' => $isDelivery ? $data['service'] : null,
                 ],
-                $request->user()->id,
+                $userId,
             );
         } catch (DomainException|RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
@@ -135,19 +172,7 @@ class CheckoutController extends Controller
         $orderedIds = collect($lines)->pluck('product_id')->all();
         $this->cart->removeMany($orderedIds);
 
-        return $this->paymentView($transaction, $transaction->payment->snap_token);
-    }
-
-    private function paymentView(Transaction $transaction, ?string $snapToken = null): View
-    {
-        $initialState = app(\App\Services\CustomerPaymentService::class)->getInitialState($transaction);
-
-        return view('customer.payment', [
-            'transaction' => $transaction,
-            'snapToken' => $snapToken ?? $transaction->payment?->snap_token,
-            'initialState' => $initialState,
-            'clientKey' => config('services.midtrans.client_key'),
-            'isProduction' => (bool) config('services.midtrans.is_production'),
-        ]);
+        // Redirect, so a browser refresh does not post the form again.
+        return redirect()->route('track.pay', $transaction->id, 303);
     }
 }

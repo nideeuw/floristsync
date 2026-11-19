@@ -17,7 +17,7 @@ Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
 
 // Midtrans webhook (no CSRF, no login)
-Route::post('midtrans/notification', [MidtransController::class, 'notification']);
+Route::post('midtrans/notification', [MidtransController::class, 'notification'])->middleware('throttle:300,1,midtrans');
 
 // ---------- Internal (session login + CSRF) ----------
 Route::middleware(['web', 'auth'])->group(function () {

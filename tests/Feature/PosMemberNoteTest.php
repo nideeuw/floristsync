@@ -59,7 +59,7 @@ class PosMemberNoteTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->product = Product::create([
+        $this->product = Product::factory()->create([
             'category_id' => $category->id,
             'product_name' => 'Blue Orchid',
             'price' => 45000,

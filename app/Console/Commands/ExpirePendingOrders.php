@@ -11,9 +11,11 @@ use Throwable;
 
 class ExpirePendingOrders extends Command
 {
+    private const FAILED_STATUSES = ['deny', 'cancel', 'expire', 'failure'];
+
     protected $signature = 'orders:expire-pending';
 
-    protected $description = 'Cancels online orders that are still waiting for payment after the payment window';
+    protected $description = 'Syncs online orders that are still waiting for payment after the payment window with Midtrans, and cancels the ones that were never paid';
 
     public function handle(TransactionService $transactions, MidtransService $midtrans): int
     {
@@ -25,41 +27,67 @@ class ExpirePendingOrders extends Command
             ->orderBy('id')
             ->get();
 
-        $paid = 0;
-        $cancelled = 0;
+        $expired = 0; // cancelled here: Midtrans has no record, or the invoice is still pending
+        $synced = 0;  // Midtrans status applied through updatePaymentStatus (paid or failed)
+        $failed = 0;  // an error happened for this order, it is retried on the next run
 
         foreach ($orders as $transaction) {
             try {
                 $orderId = $transaction->payment?->midtrans_order_id;
+                $remote = $orderId ? $midtrans->getStatus($orderId) : null;
 
-                if ($orderId && $this->isPaid($midtrans->getStatus($orderId))) {
-                    $paid++;
+                // getStatus() returns null on HTTP 404, Midtrans can also answer 200 with status_code 404 in the body.
+                $hasRecord = $remote !== null && (string) ($remote['status_code'] ?? '') !== '404';
+                $status = $hasRecord ? ($remote['transaction_status'] ?? null) : null;
+
+                if (! $hasRecord || $status === 'pending') {
+                    $transactions->cancel($transaction);
+
+                    if ($transaction->status === Transaction::CANCELLED) {
+                        Log::info("Expire pending orders: cancelled order #{$transaction->id}");
+                        $expired++;
+                    }
 
                     continue;
                 }
 
-                $transactions->cancel($transaction);
+                if ($this->isPaid($remote) || in_array($status, self::FAILED_STATUSES, true)) {
+                    // Same fields that TransactionService::resumePayment() builds.
+                    $transactions->updatePaymentStatus([
+                        'order_id' => $orderId,
+                        'transaction_status' => $status,
+                        'fraud_status' => $remote['fraud_status'] ?? null,
+                        'payment_type' => $remote['payment_type'] ?? null,
+                        'gross_amount' => $remote['gross_amount'] ?? null,
+                    ]);
 
-                Log::info("Expire pending orders: cancelled order #{$transaction->id}");
+                    Log::info("Expire pending orders: synced order #{$transaction->id} with Midtrans status '{$status}'");
+                    $synced++;
 
-                $cancelled++;
+                    continue;
+                }
+
+                // authorize, capture with a fraud challenge, or anything unexpected: money may be held, so do not cancel.
+                Log::warning("Expire pending orders: order #{$transaction->id} left untouched, Midtrans status is '{$status}'");
             } catch (Throwable $e) {
+                $failed++;
                 Log::warning("Expire pending orders: order #{$transaction->id} failed: {$e->getMessage()}");
             }
         }
 
-        $this->info(sprintf('Checked %d order(s): %d already paid, %d cancelled.', $orders->count(), $paid, $cancelled));
+        $summary = sprintf('Expire pending orders: expired %d, synced %d, failed %d', $expired, $synced, $failed);
+
+        Log::info($summary);
+        $this->info($summary);
 
         return self::SUCCESS;
     }
 
-    private function isPaid(?array $remote): bool
+    private function isPaid(array $remote): bool
     {
-        if ($remote === null) {
-            return false;
-        }
+        $status = $remote['transaction_status'] ?? '';
 
-        return ($remote['transaction_status'] ?? '') === 'settlement'
-            || (($remote['transaction_status'] ?? '') === 'capture' && ($remote['fraud_status'] ?? null) === 'accept');
+        return $status === 'settlement'
+            || ($status === 'capture' && ($remote['fraud_status'] ?? null) === 'accept');
     }
 }
