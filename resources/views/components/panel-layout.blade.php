@@ -54,6 +54,12 @@
         mobileOpen: false,
         desktop: window.matchMedia('(min-width: 1024px)').matches,
         collapsed: document.documentElement.classList.contains('fs-collapsed'),
+        tip: null,
+        showTip(el, label) {
+            if (! this.desktop || ! this.collapsed) { return; }
+            const r = el.getBoundingClientRect();
+            this.tip = { label, top: r.top + r.height / 2, left: r.right + 12 };
+        },
         init() {
             const mq = window.matchMedia('(min-width: 1024px)');
             mq.addEventListener('change', (e) => {
@@ -61,6 +67,7 @@
                 if (e.matches) { this.mobileOpen = false; }
             });
             this.$watch('collapsed', (v) => {
+                this.tip = null;
                 document.documentElement.classList.toggle('fs-collapsed', v);
                 try { localStorage.setItem('fs.sidebar', v ? '1' : '0'); } catch (e) {}
             });
@@ -82,54 +89,69 @@
     <div x-show="mobileOpen" x-cloak x-transition.opacity x-on:click="mobileOpen = false"
         class="fixed inset-0 z-40 bg-ink/40 lg:hidden" aria-hidden="true"></div>
 
-    <div @class(['flex bg-white', 'h-screen overflow-hidden' => $fixed, 'min-h-screen' => ! $fixed])>
+    <div @class(['flex bg-shell', 'h-screen overflow-hidden' => $fixed, 'min-h-screen' => ! $fixed])>
 
         {{-- Sidebar --}}
         <aside id="app-sidebar" aria-label="Sidebar"
             :class="mobileOpen && '!translate-x-0'"
             x-effect="$el.toggleAttribute('inert', !desktop && !mobileOpen)"
             x-on:click="if ($event.target.closest('a')) { mobileOpen = false }"
-            class="fs-shell-aside fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col overflow-hidden border-r border-blush bg-white shadow-xl lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-none">
+            class="fs-shell-aside fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col overflow-hidden rounded-r-3xl bg-white shadow-xl lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:rounded-r-3xl lg:shadow-[6px_0_24px_-14px_rgba(55,64,48,0.35)] lg:ring-1 lg:ring-blush">
 
-            <div class="fs-center-collapsed flex h-14 shrink-0 items-center justify-between border-b border-blush/70 px-5">
+            <div class="fs-head flex h-16 shrink-0 items-center justify-between gap-1.5 pl-[1.125rem] pr-2.5">
                 <x-ui.brand :href="$home" :name="$brandName" text-class="fs-hide-collapsed"
-                    class="min-w-0 text-moss" :title="$brandName" />
+                    class="fs-brand min-w-0 text-moss" :title="$brandName" />
 
+                {{-- Mobile: close the drawer --}}
                 <button type="button" x-on:click="mobileOpen = false" aria-label="Close menu"
-                    class="rounded-xl p-2 text-ink/60 transition-colors hover:bg-cream/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage lg:hidden">
+                    class="shrink-0 rounded-xl p-2 text-ink/60 transition-colors hover:bg-shell hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage lg:hidden">
                     <x-ui.icon name="x" class="h-5 w-5" />
+                </button>
+
+                {{-- Desktop: collapse / expand the sidebar --}}
+                <button type="button" x-on:click="toggle()" aria-controls="app-sidebar" aria-label="Toggle sidebar"
+                    :aria-expanded="collapsed ? 'false' : 'true'"
+                    x-on:mouseenter="showTip($el, collapsed ? 'Expand sidebar' : 'Collapse sidebar')" x-on:mouseleave="tip = null"
+                    class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blush/70 text-ink/60 transition-colors hover:bg-shell hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage lg:flex">
+                    <x-ui.icon name="panel-left-close" class="h-[1.125rem] w-[1.125rem] fs-hide-when-collapsed" />
+                    <x-ui.icon name="panel-left-open" class="fs-show-collapsed h-[1.125rem] w-[1.125rem]" />
                 </button>
             </div>
 
-            <x-nav.sidebar :menus="$menus" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" />
+            <x-nav.sidebar :menus="$menus" class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-2" />
         </aside>
 
-        {{-- Content column --}}
-        <div @class(['flex min-w-0 flex-1 flex-col bg-cream/30', 'h-screen' => $fixed])>
+        {{-- Tooltip for the collapsed rail (the sidebar clips overflow, so it is drawn fixed) --}}
+        <div x-show="tip" x-cloak x-transition.opacity.duration.150ms
+            :style="tip ? `top:${tip.top}px; left:${tip.left}px` : ''"
+            class="pointer-events-none fixed z-[60] -translate-y-1/2 whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs font-medium text-white shadow-lg"
+            x-text="tip ? tip.label : ''" role="tooltip"></div>
 
-            {{-- Header --}}
-            <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-blush/70 bg-white px-4 sm:px-6">
-                <button type="button" x-on:click="toggle()" aria-controls="app-sidebar" aria-label="Toggle sidebar"
-                    :aria-expanded="(desktop ? !collapsed : mobileOpen) ? 'true' : 'false'"
-                    class="rounded-xl p-2 text-ink/70 transition-colors hover:bg-cream/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
+        {{-- Content column --}}
+        <div @class(['flex min-w-0 flex-1 flex-col bg-shell', 'h-screen' => $fixed])>
+
+            {{-- Header: flat bar on the page background --}}
+            <div class="sticky top-0 z-20 shrink-0 bg-shell/90 backdrop-blur">
+            <header class="relative flex h-16 items-center gap-3 px-4 sm:px-6">
+                <button type="button" x-on:click="mobileOpen = !mobileOpen" aria-controls="app-sidebar" aria-label="Open menu"
+                    :aria-expanded="mobileOpen ? 'true' : 'false'"
+                    class="rounded-xl p-2 text-ink/70 transition-colors hover:bg-shell hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage lg:hidden">
                     <x-ui.icon name="menu" class="h-5 w-5" />
                 </button>
 
                 @if ($fixed)
-                    <div class="min-w-0 flex-1 truncate font-semibold">{{ $title }}</div>
-
-                    <div class="hidden text-right leading-tight sm:block"
+                    <div class="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-center leading-tight sm:block"
                         x-data="{ now: new Date() }" x-init="setInterval(() => now = new Date(), 1000)">
                         <div class="font-mono text-sm font-semibold" x-text="now.toLocaleTimeString('en-GB')"></div>
                         <div class="text-xs text-ink/60"
                             x-text="now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })"></div>
                     </div>
+                    <div class="flex-1"></div>
                 @else
                     <x-nav.search :items="$searchItems" />
-                    <div class="flex-1 sm:hidden"></div>
                 @endif
 
-                <div class="ml-auto flex items-center gap-1 sm:gap-2">
+                <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
                     @if ($bell && $user)
                         <x-nav.bell :href="$bell" :user="$user" />
                     @endif
@@ -164,10 +186,11 @@
                     @endif
                 </div>
             </header>
+            </div>
 
             {{-- Page --}}
             @if ($fixed)
-                <main class="min-h-0 flex-1 overflow-hidden">
+                <main class="min-h-0 flex-1 overflow-hidden px-3 pb-3 sm:px-4">
                     {{ $slot }}
                 </main>
             @else

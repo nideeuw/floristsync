@@ -4,11 +4,11 @@
         data-low-stock="{{ (int) config('floristsync.low_stock_threshold') }}"
         data-login-url="{{ route('cashier.login') }}"
         x-on:keydown.window.f2.prevent="$refs.search.focus()"
-        class="flex h-[calc(100vh-3.5rem)]">
+        class="flex h-full gap-3">
 
         {{-- ================= Left: products ================= --}}
-        <section class="flex min-w-0 flex-1 flex-col">
-            <div class="space-y-3 border-b border-blush bg-white p-4">
+        <section class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-blush/40">
+            <div class="space-y-3 border-b border-blush/60 bg-white p-4">
                 <div class="flex gap-3">
                     <input x-ref="search" x-model="search" type="text" placeholder="Search product (F2)" class="input"
                         x-on:keydown.enter="if (filtered.length === 1) { add(filtered[0]); search = ''; }">
@@ -63,8 +63,8 @@
         </section>
 
         {{-- ================= Right: cart and payment ================= --}}
-        <aside class="flex w-full max-w-sm shrink-0 flex-col border-l border-blush bg-white sm:w-96">
-            <div class="flex items-center justify-between border-b border-blush px-4 py-3">
+        <aside class="flex w-full max-w-sm shrink-0 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-blush/40 sm:w-96">
+            <div class="flex items-center justify-between border-b border-blush/60 px-4 py-3">
                 <div>
                     <div class="font-bold">Current Order</div>
                     <div class="text-xs text-gray-500" x-text="itemCount + ' item(s)'"></div>

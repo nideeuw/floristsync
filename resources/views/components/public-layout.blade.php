@@ -178,7 +178,7 @@ $navLinks = [
         </div>
 
         <div class="border-t border-white/10 py-5 text-center text-xs text-cream/60">
-            &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
+            <x-copyright />. All rights reserved.
         </div>
     </footer>
 

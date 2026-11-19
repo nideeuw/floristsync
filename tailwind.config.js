@@ -19,6 +19,7 @@ export default {
                 moss: '#7E8C69',
                 ink: '#374030',
                 paper: '#FBF7F4',
+                shell: '#EBE2DC',
             },
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],

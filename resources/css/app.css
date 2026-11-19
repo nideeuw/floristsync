@@ -84,6 +84,7 @@
     }
 }
 
+/* Sidebar: icons keep their position, text fades, width eases (desktop collapse to a rail) */
 .fs-show-collapsed {
     display: none;
 }
@@ -93,7 +94,11 @@
 }
 
 .fs-ready .fs-shell-aside {
-    transition: transform 220ms ease-out, width 220ms ease-out;
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fs-hide-collapsed {
+    transition: opacity 180ms ease;
 }
 
 @media (min-width: 1024px) {
@@ -102,22 +107,36 @@
     }
 
     .fs-collapsed .fs-hide-collapsed {
-        display: none;
+        opacity: 0;
+        pointer-events: none;
     }
 
     .fs-collapsed .fs-show-collapsed {
         display: block;
     }
 
-    .fs-collapsed .fs-center-collapsed {
+    /* Rail: header holds only the expand button, footer stacks avatar over log out */
+    .fs-collapsed .fs-head {
         justify-content: center;
-        padding-left: 0;
-        padding-right: 0;
+        padding-inline: 0;
+    }
+
+    .fs-collapsed .fs-brand,
+    .fs-collapsed .fs-hide-when-collapsed,
+    .fs-collapsed .fs-gone {
+        display: none;
+    }
+
+    .fs-collapsed .fs-foot {
+        flex-direction: column;
+        gap: 0.25rem;
+        padding-inline: 0.25rem;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .fs-ready .fs-shell-aside {
+    .fs-ready .fs-shell-aside,
+    .fs-hide-collapsed {
         transition: none;
     }
 }

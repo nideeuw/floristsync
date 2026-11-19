@@ -1,4 +1,4 @@
-@props(['title', 'subtitle' => null, 'action', 'button' => 'Log in', 'dark' => false, 'home' => null, 'forgot' => null, 'badge' => null, 'headline' => null, 'points' => []])
+@props(['title', 'subtitle' => null, 'action', 'button' => 'Log in', 'dark' => false, 'home' => null, 'forgot' => null, 'badge' => null, 'headline' => null, 'points' => [], 'variant' => 'bloom', 'remember' => false])
 
 @php
 $otherKey = collect($errors->keys())->diff(['email', 'password'])->first();
@@ -20,44 +20,7 @@ $otherKey = collect($errors->keys())->diff(['email', 'password'])->first();
     <div class="grid min-h-screen lg:grid-cols-2">
 
         {{-- Brand panel (desktop only) --}}
-        <aside class="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12
-            {{ $dark ? 'bg-gradient-to-br from-ink via-[#2b3426] to-moss/70 text-cream' : 'bg-gradient-to-br from-blush via-cream to-petal/50 text-ink' }}">
-            <div class="pointer-events-none absolute -left-20 -top-20 h-80 w-80 rounded-full blur-3xl {{ $dark ? 'bg-petal/15' : 'bg-white/50' }}"></div>
-            <div class="pointer-events-none absolute -bottom-24 -right-10 h-96 w-96 rounded-full blur-3xl {{ $dark ? 'bg-sage/25' : 'bg-sage/30' }}"></div>
-
-            <x-brand-mark :href="$home ?? url('/')" size="lg" :light="$dark" class="relative" />
-
-            <div class="relative max-w-md">
-                @if ($badge)
-                <span class="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]
-                    {{ $dark ? 'bg-white/10 text-petal' : 'bg-white/70 text-moss' }}">
-                    <x-ui.icon name="shield-check" class="h-4 w-4" />
-                    {{ $badge }}
-                </span>
-                @endif
-
-                @if ($headline)
-                <h2 class="mt-5 font-display text-5xl font-semibold leading-[1.05]">{{ $headline }}</h2>
-                @endif
-
-                @if (count($points))
-                <ul class="mt-8 space-y-3">
-                    @foreach ($points as $point)
-                    <li class="flex items-center gap-4 rounded-2xl px-4 py-3 backdrop-blur {{ $dark ? 'bg-white/10' : 'bg-white/60' }}">
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $dark ? 'bg-white/10 text-petal' : 'bg-blush text-moss' }}">
-                            <x-ui.icon :name="$point['icon']" class="h-5 w-5" />
-                        </span>
-                        <span class="text-sm font-medium">{{ $point['text'] }}</span>
-                    </li>
-                    @endforeach
-                </ul>
-                @endif
-            </div>
-
-            <p class="relative text-xs {{ $dark ? 'text-cream/50' : 'text-ink/50' }}">
-                &copy; {{ date('Y') }} {{ config('app.name') }}
-            </p>
-        </aside>
+        <x-login-aside :variant="$variant" :dark="$dark" :home="$home" :badge="$badge" :headline="$headline" :points="$points" />
 
         {{-- Form side --}}
         <main class="flex items-center justify-center px-4 py-10 sm:px-8">
@@ -91,9 +54,11 @@ $otherKey = collect($errors->keys())->diff(['email', 'password'])->first();
                         <x-member-field name="password" label="Password" type="password" icon="lock" autocomplete="current-password" required />
 
                         <div class="flex items-center justify-between text-sm">
+                            @if ($remember)
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" name="remember" class="rounded accent-moss"> Remember me
                             </label>
+                            @endif
 
                             @if ($forgot)
                             <a href="{{ $forgot }}" class="font-medium text-moss hover:text-ink">Forgot password?</a>

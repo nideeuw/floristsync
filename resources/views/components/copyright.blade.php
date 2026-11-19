@@ -1,0 +1,1 @@
+<span {{ $attributes }}>&copy; {{ date('Y') }} FloristSync Team</span>
