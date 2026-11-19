@@ -23,13 +23,45 @@ use Illuminate\Support\Facades\DB;
  */
 class Product extends Model
 {
-    use HasFactory, HasAuditColumns;
+    use HasAuditColumns, HasFactory;
 
-    public const STATUS_AVAILABLE   = 'available';
+    public const STATUS_AVAILABLE = 'available';
+
     public const STATUS_UNAVAILABLE = 'unavailable';
 
     protected $guarded = ['id'];
+
     protected $casts = ['is_active' => 'boolean'];
+
+    protected static function booted(): void
+    {
+        static::created(function (Product $product) {
+            $initialStock = isset($product->attributes['stock']) ? (int) $product->attributes['stock'] : 0;
+            if ($initialStock > 0 && $product->stocks()->doesntExist()) {
+                $product->stocks()->create([
+                    'quantity_change' => $initialStock,
+                    'change_type' => 'in',
+                    'notes' => 'Initial stock',
+                    'date' => now(),
+                ]);
+            }
+        });
+
+        static::updating(function (Product $product) {
+            if ($product->isDirty('stock')) {
+                $currentInView = (int) DB::table('view_stock')->where('product_id', $product->getKey())->value('stock');
+                $diff = (int) $product->stock - $currentInView;
+                if ($diff !== 0) {
+                    $product->stocks()->create([
+                        'quantity_change' => $diff,
+                        'change_type' => 'adjustment',
+                        'notes' => 'Stock updated via model',
+                        'date' => now(),
+                    ]);
+                }
+            }
+        });
+    }
 
     public function category(): BelongsTo
     {

@@ -67,6 +67,11 @@
                                     class="font-semibold text-moss hover:underline">Reprint</a>
                                 @else
                                 <x-status-badge :status="$transaction->status" />
+                                @if ($transaction->status === 'cancelled' && $transaction->refund_method)
+                                <div class="mt-0.5 text-[11px] text-gray-500 font-medium">
+                                    Refund: <span class="uppercase">{{ str_replace('_', ' ', $transaction->refund_method) }}</span>
+                                </div>
+                                @endif
                                 @endif
                             </td>
                         </tr>

@@ -7,6 +7,7 @@ use App\Models\Stock;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class InventoryService
 {
@@ -28,6 +29,10 @@ class InventoryService
             }
 
             $this->log($product->id, -$qty, 'out', $notes);
+
+            if (Schema::hasColumn('products', 'stock')) {
+                Product::whereKey($product->id)->decrement('stock', $qty);
+            }
         });
 
         $this->notifyIfLow($product);
@@ -36,6 +41,10 @@ class InventoryService
     public function add(Product $product, int $qty, string $changeType = 'in', string $notes = 'Restock'): void
     {
         $this->log($product->id, $qty, $changeType, $notes);
+
+        if (Schema::hasColumn('products', 'stock')) {
+            Product::whereKey($product->id)->increment('stock', $qty);
+        }
     }
 
     public function adjust(Product $product, int $change, string $notes): void

@@ -12,6 +12,8 @@ return [
     'store_address' => env('STORE_ADDRESS', 'Jl. Merbabu No. 12, Malang'),
     'phone' => env('STORE_PHONE', '0812-3456-7890'),
 
+    'pos_cancel_window_minutes' => (int) env('POS_CANCEL_WINDOW_MINUTES', 30),
+
     // Fallback opening hours, used until the owner saves store settings.
     'opening_hours' => array_fill_keys(
         ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],

@@ -40,12 +40,18 @@ class ProductFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Product $product) {
-            $product->stocks()->create([
-                'quantity_change' => fake()->numberBetween(0, 30),
-                'change_type' => 'in',
-                'notes' => 'Initial stock (factory)',
-                'date' => now(),
-            ]);
+            if ($product->stocks()->doesntExist()) {
+                $qty = isset($product->attributes['stock'])
+                    ? (int) $product->attributes['stock']
+                    : fake()->numberBetween(0, 30);
+
+                $product->stocks()->create([
+                    'quantity_change' => $qty,
+                    'change_type' => 'in',
+                    'notes' => 'Initial stock (factory)',
+                    'date' => now(),
+                ]);
+            }
         });
     }
 }

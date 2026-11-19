@@ -27,7 +27,7 @@ class CancelTransactionController extends Controller
         $transactions = Transaction::where('transaction_type', Transaction::TYPE_POS)
             ->where('cashier_id', $cashier->id)
             ->where('created_on', '>=', now()->startOfDay())
-            ->with(['payment', 'details.product', 'cancelledBy'])
+            ->with(['payment', 'details.product', 'cancelledBy', 'shift'])
             ->withCount('details')
             ->latest('id')
             ->paginate(15);
@@ -42,10 +42,16 @@ class CancelTransactionController extends Controller
     {
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:255'],
+            'refund_method' => ['required', 'string', 'in:cash,debit,qris_manual'],
         ]);
 
         try {
-            $this->cancellationService->cancel($transaction, $request->user(), $data['reason']);
+            $this->cancellationService->cancel(
+                $transaction,
+                $request->user(),
+                $data['reason'],
+                $data['refund_method']
+            );
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         } catch (Throwable $e) {

@@ -1,11 +1,20 @@
 <x-pos-layout title="Cancel Transaction">
     <div class="h-[calc(100vh-3.5rem)] overflow-y-auto p-6" x-data="{
         activeTx: null,
+        refundMethod: 'cash',
         openCancel(tx) {
             this.activeTx = tx;
+            if (tx.paymentMethod === 'qris') {
+                this.refundMethod = 'qris_manual';
+            } else if (tx.paymentMethod === 'debit') {
+                this.refundMethod = 'debit';
+            } else {
+                this.refundMethod = 'cash';
+            }
         },
         closeCancel() {
             this.activeTx = null;
+            this.refundMethod = 'cash';
         }
     }">
         <div class="mx-auto max-w-5xl">
@@ -41,6 +50,13 @@
                     </thead>
                     <tbody class="divide-y divide-blush">
                         @forelse ($transactions as $transaction)
+                        @php
+                            $windowMinutes = (int) config('floristsync.pos_cancel_window_minutes', 30);
+                            $createdOn = $transaction->created_on ?? $transaction->created_at;
+                            $isPastWindow = $createdOn && \Carbon\Carbon::parse($createdOn)->addMinutes($windowMinutes)->isPast();
+                            $isShiftClosed = $transaction->shift && ! $transaction->shift->isOpen();
+                            $requiresOwner = $isPastWindow || $isShiftClosed;
+                        @endphp
                         <tr class="{{ $transaction->status === 'cancelled' ? 'bg-gray-50/60' : 'hover:bg-cream/20' }} transition-colors">
                             <td class="px-4 py-3 font-mono text-xs font-semibold">
                                 {{ $transaction->order_number }}
@@ -64,25 +80,39 @@
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <x-status-badge :status="$transaction->status" />
-                                @if ($transaction->status === 'cancelled' && $transaction->cancel_reason)
-                                <div class="mt-1 max-w-[12rem] truncate text-xs text-red-600" title="{{ $transaction->cancel_reason }}">
-                                    {{ $transaction->cancel_reason }}
-                                </div>
+                                @if ($transaction->status === 'cancelled')
+                                    @if ($transaction->refund_method)
+                                    <div class="mt-0.5 text-xs text-gray-500">
+                                        Refund: <span class="font-semibold uppercase">{{ str_replace('_', ' ', $transaction->refund_method) }}</span>
+                                    </div>
+                                    @endif
+                                    @if ($transaction->cancel_reason)
+                                    <div class="mt-0.5 max-w-[12rem] truncate text-xs text-red-600" title="{{ $transaction->cancel_reason }}">
+                                        {{ $transaction->cancel_reason }}
+                                    </div>
+                                    @endif
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 @if ($transaction->status === 'completed')
-                                <button type="button"
-                                    @click="openCancel({
-                                        id: {{ $transaction->id }},
-                                        order: '{{ $transaction->order_number }}',
-                                        total: '{{ rupiah($transaction->total) }}',
-                                        action: '{{ route('cashier.cancel.store', $transaction) }}'
-                                    })"
-                                    class="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/70 px-3.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 hover:border-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400">
-                                    <x-ui.icon name="x" class="h-3.5 w-3.5" />
-                                    <span>Cancel</span>
-                                </button>
+                                    @if ($requiresOwner)
+                                    <span class="inline-flex items-center text-xs font-semibold text-amber-700" title="Please ask the owner.">
+                                        Please ask the owner.
+                                    </span>
+                                    @else
+                                    <button type="button"
+                                        @click="openCancel({
+                                            id: {{ $transaction->id }},
+                                            order: '{{ $transaction->order_number }}',
+                                            total: '{{ rupiah($transaction->total) }}',
+                                            paymentMethod: '{{ $transaction->payment?->payment_method ?? 'cash' }}',
+                                            action: '{{ route('cashier.cancel.store', $transaction) }}'
+                                        })"
+                                        class="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/70 px-3.5 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 hover:border-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400">
+                                        <x-ui.icon name="x" class="h-3.5 w-3.5" />
+                                        <span>Cancel</span>
+                                    </button>
+                                    @endif
                                 @elseif ($transaction->status === 'cancelled')
                                 <span class="text-xs text-gray-400">Cancelled</span>
                                 @else
@@ -151,6 +181,23 @@
 
                 <form method="POST" :action="activeTx?.action" class="mt-4 space-y-4">
                     @csrf
+                    <div>
+                        <label for="refund_method_select" class="block text-sm font-semibold text-gray-700">
+                            Refund Method <span class="text-red-500">*</span>
+                        </label>
+                        <select name="refund_method" id="refund_method_select" required class="input mt-1.5 w-full" x-model="refundMethod">
+                            <option value="cash" :disabled="activeTx?.paymentMethod === 'qris'">Cash</option>
+                            <option value="debit" :disabled="activeTx?.paymentMethod === 'qris'">Debit</option>
+                            <option value="qris_manual">QRIS Manual</option>
+                        </select>
+                        <p x-show="activeTx?.paymentMethod === 'qris'" class="mt-1 text-[11px] text-amber-700 font-medium">
+                            QRIS transactions must be refunded with qris_manual.
+                        </p>
+                        <p x-show="activeTx?.paymentMethod !== 'qris'" class="mt-1 text-[11px] text-gray-400">
+                            Select how the refund was issued to the customer.
+                        </p>
+                    </div>
+
                     <div>
                         <label for="cancel_reason_input" class="block text-sm font-semibold text-gray-700">
                             Reason for Cancellation <span class="text-red-500">*</span>
