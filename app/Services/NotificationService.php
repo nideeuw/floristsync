@@ -6,6 +6,7 @@ use App\Models\AppNotification;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class NotificationService
@@ -37,27 +38,31 @@ class NotificationService
 
     public function notifyLowStock(Product $product): void
     {
-        if ($product->stock > config('floristsync.low_stock_threshold')) {
+        if (! $product->is_active || $product->stock > config('floristsync.low_stock_threshold')) {
             return;
         }
 
         $title = Str::limit("Low stock: {$product->product_name}", 150, '');
         $message = "{$product->product_name} has {$product->stock} left. Please restock soon.";
-        $link = route('admin.stock.index', [], false);
+        $link = route('admin.stock.index', ['product' => $product->id], false);
 
-        User::active()
-            ->whereHas('role', fn ($q) => $q->where('role_name', Role::ADMIN_INVENTORY))
-            ->pluck('id')
-            ->each(function ($userId) use ($title, $message, $link) {
-                $alreadyUnread = AppNotification::where('user_id', $userId)
-                    ->where('type', 'low_stock')
-                    ->where('title', $title)
-                    ->where('is_read', false)
-                    ->exists();
+        DB::transaction(function () use ($product, $title, $message, $link) {
+            Product::whereKey($product->id)->lockForUpdate()->first();
 
-                if (! $alreadyUnread) {
-                    $this->notifyUser($userId, $title, $message, 'low_stock', $link);
-                }
-            });
+            User::active()
+                ->whereHas('role', fn ($q) => $q->where('role_name', Role::ADMIN_INVENTORY))
+                ->pluck('id')
+                ->each(function ($userId) use ($title, $message, $link) {
+                    $alreadyUnread = AppNotification::where('user_id', $userId)
+                        ->where('type', 'low_stock')
+                        ->where('link', $link)
+                        ->where('is_read', false)
+                        ->exists();
+
+                    if (! $alreadyUnread) {
+                        $this->notifyUser($userId, $title, $message, 'low_stock', $link);
+                    }
+                });
+        });
     }
 }
