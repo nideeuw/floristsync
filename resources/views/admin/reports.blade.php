@@ -91,6 +91,13 @@
             </label>
             @endif
 
+            @if ($tab === 'shifts')
+            <label class="flex items-end gap-2 pb-2 text-sm">
+                <input type="checkbox" name="difference_only" value="1" class="accent-moss" @checked(!empty($difference_only))>
+                Difference only
+            </label>
+            @endif
+
             <div class="flex items-end gap-2">
                 <button class="btn-primary">Apply</button>
                 <a href="{{ route('admin.reports', ['tab' => $tab]) }}" class="btn-outline">Reset</a>

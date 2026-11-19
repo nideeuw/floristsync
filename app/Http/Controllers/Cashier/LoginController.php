@@ -46,7 +46,7 @@ class LoginController extends Controller
                 $this->shifts->open($cashier);
             }
         } catch (Throwable $e) {
-            Log::error('Failed to open cashier shift: ' . $e->getMessage(), [
+            Log::error('Failed to open cashier shift: '.$e->getMessage(), [
                 'cashier_id' => Auth::id() ?? $request->user()?->id,
                 'exception' => $e,
             ]);
@@ -63,11 +63,14 @@ class LoginController extends Controller
             if ($cashier) {
                 $shift = $this->shifts->current($cashier);
                 if ($shift) {
-                    $this->shifts->close($shift);
+                    $counted = $request->filled('closing_cash_counted')
+                        ? (int) $request->input('closing_cash_counted')
+                        : null;
+                    $this->shifts->close($shift, $counted);
                 }
             }
         } catch (Throwable $e) {
-            Log::error('Failed to close cashier shift: ' . $e->getMessage(), [
+            Log::error('Failed to close cashier shift: '.$e->getMessage(), [
                 'cashier_id' => Auth::id() ?? $request->user()?->id,
                 'exception' => $e,
             ]);

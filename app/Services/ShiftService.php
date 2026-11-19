@@ -19,7 +19,7 @@ class ShiftService
             ->first();
     }
 
-    public function open(User $cashier): Shift
+    public function open(User $cashier, ?int $openingCash = 0): Shift
     {
         $existing = $this->current($cashier);
         if ($existing !== null) {
@@ -29,16 +29,71 @@ class ShiftService
         return Shift::create([
             'cashier_id' => $cashier->id,
             'opened_at' => now(),
+            'opening_cash' => $openingCash ?? 0,
             'created_by' => $cashier->id,
             'modified_by' => $cashier->id,
         ]);
     }
 
-    public function close(Shift $shift): Shift
+    public function setOpeningCash(Shift $shift, int $amount): Shift
+    {
+        $shift->update([
+            'opening_cash' => max(0, $amount),
+            'modified_by' => Auth::id() ?? $shift->cashier_id,
+        ]);
+
+        return $shift;
+    }
+
+    public function getCashReconciliation(Shift $shift): array
+    {
+        $opening = (int) ($shift->opening_cash ?? 0);
+
+        $cashSales = (int) DB::table('transactions as t')
+            ->join('payments as p', 'p.transaction_id', '=', 't.id')
+            ->where('t.shift_id', $shift->id)
+            ->where('t.transaction_type', Transaction::TYPE_POS)
+            ->where('p.payment_method', 'cash')
+            ->whereIn('t.status', [Transaction::COMPLETED, Transaction::CANCELLED])
+            ->sum('t.total');
+
+        $cancelledCashSales = (int) DB::table('transactions as t')
+            ->join('payments as p', 'p.transaction_id', '=', 't.id')
+            ->where('t.shift_id', $shift->id)
+            ->where('t.transaction_type', Transaction::TYPE_POS)
+            ->where('t.status', Transaction::CANCELLED)
+            ->where(function ($q) {
+                $q->where('t.refund_method', 'cash')
+                    ->orWhere(function ($q2) {
+                        $q2->whereNull('t.refund_method')
+                            ->where('p.payment_method', 'cash');
+                    });
+            })
+            ->sum('t.total');
+
+        $expected = $opening + $cashSales - $cancelledCashSales;
+
+        return [
+            'opening_cash' => $opening,
+            'cash_sales' => $cashSales,
+            'cancelled_cash_sales' => $cancelledCashSales,
+            'expected_cash' => $expected,
+        ];
+    }
+
+    public function close(Shift $shift, ?int $countedCash = null): Shift
     {
         if ($shift->closed_at === null) {
+            $difference = null;
+            if ($countedCash !== null) {
+                $reconciliation = $this->getCashReconciliation($shift);
+                $difference = $countedCash - $reconciliation['expected_cash'];
+            }
+
             $shift->update([
                 'closed_at' => now(),
+                'closing_cash_counted' => $countedCash,
+                'cash_difference' => $difference,
                 'modified_by' => Auth::id() ?? $shift->cashier_id,
             ]);
         }
@@ -90,6 +145,7 @@ class ShiftService
             'summary' => $summary,
             'byMethod' => $byMethod,
             'transactions' => $transactions,
+            'reconciliation' => $shift ? $this->getCashReconciliation($shift) : null,
         ];
     }
 }

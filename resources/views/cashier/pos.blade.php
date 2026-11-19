@@ -3,15 +3,23 @@
         data-storage-url="{{ asset('storage') }}"
         data-low-stock="{{ (int) config('floristsync.low_stock_threshold') }}"
         data-login-url="{{ route('cashier.login') }}"
+        data-opening-cash="{{ (int) ($shift?->opening_cash ?? 0) }}"
         x-on:keydown.window.f2.prevent="$refs.search.focus()"
         class="flex h-full gap-3">
 
         {{-- ================= Left: products ================= --}}
         <section class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-blush/40">
             <div class="space-y-3 border-b border-blush/60 bg-white p-4">
-                <div class="flex gap-3">
-                    <input x-ref="search" x-model="search" type="text" placeholder="Search product (F2)" class="input"
+                <div class="flex items-center gap-3">
+                    <input x-ref="search" x-model="search" type="text" placeholder="Search product (F2)" class="input flex-1"
                         x-on:keydown.enter="if (filtered.length === 1) { add(filtered[0]); search = ''; }">
+                    <div class="flex items-center gap-1.5 shrink-0 rounded-xl border border-blush bg-cream/40 px-2.5 py-1 text-xs">
+                        <span class="text-gray-500 font-medium">Opening Cash:</span>
+                        <span class="font-bold text-moss">Rp</span>
+                        <input type="number" min="0" x-model="openingCash" x-on:change="saveOpeningCash()"
+                            placeholder="0" class="w-24 rounded-lg border border-blush bg-white px-2 py-0.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-moss">
+                        <span x-show="openingCashSaved" x-cloak class="text-[10px] font-bold text-moss">✓</span>
+                    </div>
                     <button type="button" x-on:click="load()" class="btn-outline shrink-0" title="Refresh stock">↻</button>
                 </div>
 

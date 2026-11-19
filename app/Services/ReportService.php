@@ -16,6 +16,7 @@ class ReportService
         'products' => 'Products',
         'stock' => 'Stock',
         'cancellations' => 'Cancellations',
+        'shifts' => 'Shifts',
     ];
 
     /** Numbers for the dashboard cards. */
@@ -130,6 +131,11 @@ class ReportService
         return [
             'days' => $days,
             'cancelled' => $this->cancelledCount($from, $to),
+            'shiftsWithDifference' => DB::table('shifts')
+                ->whereBetween('opened_at', [$from, $to])
+                ->whereNotNull('cash_difference')
+                ->where('cash_difference', '!=', 0)
+                ->count(),
             'channels' => [
                 'labels' => ['POS Kiosk', 'Web E-Commerce'],
                 'data' => [$summary['pos_revenue'], $summary['online_revenue']],
@@ -167,6 +173,16 @@ class ReportService
                 ['key' => 'cancelled_time', 'label' => 'Cancelled at', 'type' => 'datetime'],
                 ['key' => 'total', 'label' => 'Value', 'type' => 'money'],
             ],
+            'shifts' => [
+                ['key' => 'id', 'label' => 'Shift #', 'type' => 'int'],
+                ['key' => 'cashier_name', 'label' => 'Cashier', 'type' => 'text'],
+                ['key' => 'opened_at', 'label' => 'Opened', 'type' => 'datetime'],
+                ['key' => 'closed_at', 'label' => 'Closed', 'type' => 'datetime'],
+                ['key' => 'opening_cash', 'label' => 'Opening', 'type' => 'money'],
+                ['key' => 'closing_cash_counted', 'label' => 'Counted', 'type' => 'money'],
+                ['key' => 'cash_difference', 'label' => 'Difference', 'type' => 'difference'],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'text'],
+            ],
             default => [
                 ['key' => 'day', 'label' => 'Date', 'type' => 'date'],
                 ['key' => 'orders', 'label' => 'Orders', 'type' => 'int'],
@@ -186,6 +202,7 @@ class ReportService
 
         return match ($type) {
             'money' => rupiah((int) $value),
+            'difference' => $value === null ? '-' : ((int) $value === 0 ? 'Exact' : ((int) $value < 0 ? 'Short by '.rupiah(abs((int) $value)) : 'Over by '.rupiah((int) $value))),
             'int' => number_format((int) $value, 0, ',', '.'),
             'date' => Carbon::parse($value)->format('d M Y'),
             'datetime' => Carbon::parse($value)->format('d M Y, H:i'),
@@ -200,6 +217,7 @@ class ReportService
             'products' => $this->productsQuery($f),
             'stock' => $this->stockQuery($f),
             'cancellations' => $this->cancellationsQuery($f),
+            'shifts' => $this->shiftsQuery($f),
             default => $this->salesQuery($f),
         };
     }
@@ -207,6 +225,20 @@ class ReportService
     public function cards(string $tab, array $f, QueryBuilder $query): array
     {
         $count = fn ($n) => number_format((int) $n, 0, ',', '.');
+
+        if ($tab === 'shifts') {
+            $a = $this->aggregate($query, 'COUNT(*) as n, '
+                .'COALESCE(SUM(CASE WHEN cash_difference IS NOT NULL AND cash_difference != 0 THEN 1 ELSE 0 END), 0) as with_diff, '
+                .'COALESCE(SUM(CASE WHEN cash_difference < 0 THEN ABS(cash_difference) ELSE 0 END), 0) as total_shortage, '
+                .'COALESCE(SUM(CASE WHEN cash_difference > 0 THEN cash_difference ELSE 0 END), 0) as total_overage');
+
+            return [
+                ['label' => 'Total shifts', 'value' => $count($a->n), 'hint' => null],
+                ['label' => 'Shifts with difference', 'value' => $count($a->with_diff), 'hint' => 'Cash discrepancy recorded'],
+                ['label' => 'Total shortage', 'value' => rupiah((int) $a->total_shortage), 'hint' => 'Drawer cash short'],
+                ['label' => 'Total overage', 'value' => rupiah((int) $a->total_overage), 'hint' => 'Drawer cash over'],
+            ];
+        }
 
         if ($tab === 'products') {
             $a = $this->aggregate($query, 'COUNT(*) as n, COALESCE(SUM(total_qty), 0) as qty, COALESCE(SUM(total_revenue), 0) as revenue');
@@ -308,5 +340,29 @@ class ReportService
             ->when($f['type'] ?? null, fn ($q, $v) => $q->where('transaction_type', $v))
             ->select('id', 'order_number', 'transaction_type', 'cancel_reason', 'cancelled_by_name', 'cancelled_time', 'total')
             ->orderByDesc('cancelled_time');
+    }
+
+    /** Source: shifts table joined with users */
+    private function shiftsQuery(array $f): QueryBuilder
+    {
+        return DB::table('shifts as s')
+            ->join('users as u', 'u.id', '=', 's.cashier_id')
+            ->whereBetween('s.opened_at', [$f['from'], $f['to']])
+            ->when(! empty($f['difference_only']), function ($q) {
+                $q->whereNotNull('s.cash_difference')
+                    ->where('s.cash_difference', '!=', 0);
+            })
+            ->selectRaw(
+                's.id, u.name as cashier_name, s.opened_at, s.closed_at, '
+                .'s.opening_cash, s.closing_cash_counted, s.cash_difference, '
+                .'CASE '
+                ."  WHEN s.closed_at IS NULL THEN 'Open' "
+                ."  WHEN s.cash_difference IS NULL THEN 'Closed (uncounted)' "
+                ."  WHEN s.cash_difference = 0 THEN 'Balanced' "
+                ."  WHEN s.cash_difference < 0 THEN 'Shortage' "
+                ."  ELSE 'Overage' "
+                .'END as status'
+            )
+            ->orderByDesc('s.opened_at');
     }
 }

@@ -69,10 +69,10 @@ class ReportController extends Controller
         $query = $reports->query($f['tab'], $f);
 
         return [
-            'title' => ReportService::TABS[$f['tab']] . ' report',
+            'title' => ReportService::TABS[$f['tab']].' report',
             'period' => $f['tab'] === 'stock'
-                ? 'Current stock as of ' . now()->format('d M Y H:i')
-                : $f['from']->format('d M Y') . ' - ' . $f['to']->format('d M Y'),
+                ? 'Current stock as of '.now()->format('d M Y H:i')
+                : $f['from']->format('d M Y').' - '.$f['to']->format('d M Y'),
             'notes' => $this->notes($f),
             'cards' => $reports->cards($f['tab'], $f, $query),
             'columns' => ReportService::columns($f['tab']),
@@ -89,6 +89,7 @@ class ReportController extends Controller
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'type' => ['nullable', Rule::in([Transaction::TYPE_POS, Transaction::TYPE_ONLINE])],
             'category' => ['nullable', 'integer', 'exists:categories,id'],
+            'difference_only' => ['nullable', 'boolean'],
         ]);
 
         if (empty($data['from']) && empty($data['to'])) {
@@ -109,6 +110,7 @@ class ReportController extends Controller
             'type' => $data['type'] ?? null,
             'category' => isset($data['category']) ? (int) $data['category'] : null,
             'low' => $request->boolean('low'),
+            'difference_only' => $request->boolean('difference_only'),
         ];
     }
 
@@ -122,6 +124,7 @@ class ReportController extends Controller
             'type' => $f['type'],
             'category' => $f['category'],
             'low' => $f['low'] ? 1 : null,
+            'difference_only' => ! empty($f['difference_only']) ? 1 : null,
         ]);
     }
 
@@ -130,11 +133,11 @@ class ReportController extends Controller
         $notes = [];
 
         if ($f['type'] && $f['tab'] !== 'stock') {
-            $notes[] = 'Type: ' . ($f['type'] === Transaction::TYPE_POS ? 'POS' : 'Online');
+            $notes[] = 'Type: '.($f['type'] === Transaction::TYPE_POS ? 'POS' : 'Online');
         }
 
         if ($f['category'] && in_array($f['tab'], ['products', 'stock'], true)) {
-            $notes[] = 'Category: ' . (Category::find($f['category'])?->category_name ?? '-');
+            $notes[] = 'Category: '.(Category::find($f['category'])?->category_name ?? '-');
         }
 
         if ($f['low'] && $f['tab'] === 'stock') {
@@ -160,8 +163,8 @@ class ReportController extends Controller
     {
         $range = $f['tab'] === 'stock'
             ? now()->format('Ymd')
-            : $f['from']->format('Ymd') . '-' . $f['to']->format('Ymd');
+            : $f['from']->format('Ymd').'-'.$f['to']->format('Ymd');
 
-        return 'report-' . $f['tab'] . '-' . $range . '.' . $extension;
+        return 'report-'.$f['tab'].'-'.$range.'.'.$extension;
     }
 }

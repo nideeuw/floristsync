@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Role;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\ShiftService;
 use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -149,5 +150,52 @@ class PosController extends Controller
                 'receipt_url' => route('cashier.receipt', $transaction),
             ],
         ], 201);
+    }
+
+    public function updateOpeningCash(Request $request, ShiftService $shifts): JsonResponse
+    {
+        $data = $request->validate([
+            'opening_cash' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $cashier = $request->user();
+        $shift = $shifts->current($cashier) ?? $shifts->open($cashier);
+
+        $shifts->setOpeningCash($shift, (int) $data['opening_cash']);
+
+        return response()->json([
+            'message' => 'Opening cash updated.',
+            'opening_cash' => $shift->opening_cash,
+        ]);
+    }
+
+    public function closeShift(Request $request, ShiftService $shifts): JsonResponse
+    {
+        $cashier = $request->user();
+        $shift = $shifts->current($cashier);
+
+        if (! $shift) {
+            return response()->json(['message' => 'No active shift found.'], 404);
+        }
+
+        $counted = $request->filled('closing_cash_counted')
+            ? (int) $request->input('closing_cash_counted')
+            : null;
+
+        $shifts->close($shift, $counted);
+        $reconciliation = $shifts->getCashReconciliation($shift);
+
+        return response()->json([
+            'message' => 'Shift closed.',
+            'data' => [
+                'shift_id' => $shift->id,
+                'opened_at' => $shift->opened_at,
+                'closed_at' => $shift->closed_at,
+                'opening_cash' => $shift->opening_cash,
+                'closing_cash_counted' => $shift->closing_cash_counted,
+                'cash_difference' => $shift->cash_difference,
+                'reconciliation' => $reconciliation,
+            ],
+        ]);
     }
 }

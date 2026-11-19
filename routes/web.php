@@ -201,9 +201,11 @@ Route::prefix('pos')->name('cashier.')->group(function () {
 
         Route::get('receipt/{transaction}', [TransactionController::class, 'receipt'])->name('receipt');
 
-        Route::middleware('menu.perm:cashier.history')->group(function () {
-            Route::get('history', [TransactionController::class, 'index'])->name('history');
-        });
+        Route::get('history', [TransactionController::class, 'index'])
+            ->middleware('menu.perm:cashier.history')->name('history');
+
+        Route::post('shift/close', [TransactionController::class, 'closeShift'])->name('shift.close');
+        Route::post('shift/opening-cash', [TransactionController::class, 'updateOpeningCash'])->name('shift.opening-cash');
 
         Route::middleware('menu.perm:cashier.cancel')->group(function () {
             Route::get('cancel', [CancelTransactionController::class, 'index'])->name('cancel');
