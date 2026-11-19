@@ -16,6 +16,7 @@
                 error: '',
                 timer: null,
                 requestId: 0,
+                submitting: false,
 
                 get selected() {
                     return this.options.find(o => o.service === this.service) || null;
@@ -178,7 +179,8 @@
     <div class="mx-auto max-w-7xl px-4 py-8 md:py-12" x-data="checkout({{ Js::from($config) }})">
         <x-page-header eyebrow="Almost there" title="Checkout" />
 
-        <form method="POST" action="{{ route('checkout.store') }}" class="mt-10 grid gap-8 lg:grid-cols-3">
+        <form method="POST" action="{{ route('checkout.store') }}" class="mt-10 grid gap-8 lg:grid-cols-3"
+            @submit="submitting = true" @pageshow.window="submitting = false">
             @csrf
 
             @foreach ($items as $item)
@@ -374,7 +376,8 @@
                     </div>
 
                     <button class="btn-primary mt-6 w-full py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50"
-                        :disabled="!canSubmit">Place order &amp; pay</button>
+                        :disabled="!canSubmit || submitting"
+                        x-text="submitting ? 'Placing your order...' : 'Place order &amp; pay'">Place order &amp; pay</button>
                     <p class="mt-3 text-center text-xs text-ink/50">Final shipping cost is confirmed by the server. Payment via Midtrans (card, QRIS, e-wallet).</p>
                 </div>
             </div>

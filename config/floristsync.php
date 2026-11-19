@@ -7,6 +7,10 @@ return [
     // Used to estimate parcel weight (the ERD has no weight column).
     'default_item_weight_gram' => (int) env('DEFAULT_ITEM_WEIGHT_GRAM', 1000),
 
+    // Stock is held while an online order waits for payment. A member may have at most this many
+    // unpaid (pending_payment) online orders at the same time. 0 turns the limit off.
+    'max_pending_orders' => (int) env('MAX_PENDING_ORDERS', 3),
+
     'whatsapp_number' => env('WHATSAPP_NUMBER', '6281217775489'),
 
     'store_address' => env('STORE_ADDRESS', 'Jl. Merbabu No. 12, Malang'),

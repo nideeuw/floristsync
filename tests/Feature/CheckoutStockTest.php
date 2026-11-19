@@ -66,7 +66,7 @@ class CheckoutStockTest extends TestCase
             'fulfillment' => 'pickup',
         ]);
 
-        $response->assertOk();
+        $response->assertStatus(303);
 
         $this->assertSame(8, $this->product->fresh()->stock);
 
@@ -182,7 +182,7 @@ class CheckoutStockTest extends TestCase
             'service' => 'REG',
         ]);
 
-        $response->assertOk();
+        $response->assertStatus(303);
 
         $transaction = Transaction::where('user_id', $this->member->id)->latest('id')->firstOrFail();
         $this->assertSame(120000, (int) $transaction->total);

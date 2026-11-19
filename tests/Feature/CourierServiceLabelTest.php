@@ -215,7 +215,7 @@ class CourierServiceLabelTest extends TestCase
             'address' => 'Jl. Merbabu No. 10',
         ]);
 
-        $response->assertOk();
+        $response->assertStatus(303);
 
         $order = Transaction::latest('id')->first();
         $this->assertNotNull($order);

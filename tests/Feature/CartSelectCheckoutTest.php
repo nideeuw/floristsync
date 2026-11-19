@@ -177,7 +177,7 @@ class CartSelectCheckoutTest extends TestCase
             'selected' => [$this->rose->id],
         ]);
 
-        $response->assertOk();
+        $response->assertStatus(303);
 
         // Transaction must contain ONLY 1 detail row for Rose
         $transaction = Transaction::where('user_id', $this->member->id)->latest('id')->firstOrFail();
