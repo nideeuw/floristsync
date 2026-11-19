@@ -45,11 +45,11 @@ class OrderController extends Controller
         return response()->json($orders);
     }
 
-    /** Guest or member: track an order using the order number (payments.midtrans_order_id). */
+    /** Guest or member: track an order using the order number. */
     public function track(string $orderNumber, ShippingService $shipping): JsonResponse
     {
         $transaction = Transaction::with('details.product:id,product_name', 'payment')
-            ->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $orderNumber))
+            ->whereOrderNumber($orderNumber)
             ->firstOrFail();
 
         $tracking = null;
@@ -64,7 +64,7 @@ class OrderController extends Controller
 
         return response()->json([
             'data' => [
-                'order_number' => $orderNumber,
+                'order_number' => $transaction->order_number,
                 'status' => $transaction->status,
                 'payment_status' => $transaction->payment?->payment_status,
                 'total' => $transaction->total,

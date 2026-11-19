@@ -39,33 +39,15 @@ class CustomerPaymentService
             throw new DomainException('Payment record not found for this order.');
         }
 
-        // If changing to a different payment method, cancel previous active invoice on Midtrans first
+        // If changing to a different payment method, cancel the previous invoice on Midtrans and start a new attempt.
         if ($payment->payment_method && $payment->payment_method !== $method) {
-            $this->reversal->cancelInvoice($transaction);
-
-            $newOrderId = 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6));
-            $payment->update([
-                'midtrans_order_id' => $newOrderId,
-                'payment_method' => $method,
-                'payment_status' => 'pending',
-                'snap_token' => null,
-                'payment_proof' => null,
-            ]);
+            $this->renewMidtransOrderId($transaction, $method);
             $payment->refresh();
         }
 
-        // If charging a new card token on an already-attempted card invoice, renew midtrans order ID
+        // If a new card token is charged on an already-attempted card invoice, start a new attempt too.
         if ($method === 'credit_card' && ! empty($params['token_id']) && ($payment->snap_token || $payment->payment_proof || $payment->payment_status !== 'pending')) {
-            $this->reversal->cancelInvoice($transaction);
-
-            $newOrderId = 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6));
-            $payment->update([
-                'midtrans_order_id' => $newOrderId,
-                'payment_method' => $method,
-                'payment_status' => 'pending',
-                'snap_token' => null,
-                'payment_proof' => null,
-            ]);
+            $this->renewMidtransOrderId($transaction, $method);
             $payment->refresh();
         }
 
@@ -102,12 +84,26 @@ class CustomerPaymentService
             return;
         }
 
+        $this->renewMidtransOrderId($transaction, null);
+    }
+
+    /**
+     * Close the current Midtrans invoice and start a new attempt with a new Midtrans order id.
+     * The order number the member sees does not change; the old id stays in payment_attempts.
+     */
+    private function renewMidtransOrderId(Transaction $transaction, ?string $method): void
+    {
+        $payment = $transaction->payment;
+
         $this->reversal->cancelInvoice($transaction);
 
         $newOrderId = 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6));
+
+        $payment->recordAttempt($newOrderId, $method);
+
         $payment->update([
             'midtrans_order_id' => $newOrderId,
-            'payment_method' => null,
+            'payment_method' => $method,
             'payment_status' => 'pending',
             'snap_token' => null,
             'payment_proof' => null,
