@@ -12,10 +12,14 @@ class Shift extends Model
     use HasAuditColumns;
 
     protected $guarded = ['id'];
+
     protected $casts = [
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'is_active' => 'boolean',
+        'opening_cash' => 'integer',
+        'closing_cash_counted' => 'integer',
+        'cash_difference' => 'integer',
     ];
 
     public function cashier(): BelongsTo

@@ -26,12 +26,16 @@ export default () => ({
     notes: '',
     showNote: false,
 
+    openingCash: 0,
+    openingCashSaved: false,
+
     init() {
         const data = this.$el.dataset;
 
         this.storageUrl = data.storageUrl;
         this.lowStock = Number(data.lowStock);
         this.loginUrl = data.loginUrl;
+        this.openingCash = Number(data.openingCash || 0);
 
         this.load();
         setInterval(() => this.load(), 15000);
@@ -54,6 +58,28 @@ export default () => ({
             this.syncCart();
         } catch (e) {
             console.error(e);
+        }
+    },
+
+    async saveOpeningCash() {
+        try {
+            const res = await fetch('/api/pos/shift/opening-cash', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                },
+                body: JSON.stringify({
+                    opening_cash: Number(this.openingCash) || 0,
+                }),
+            });
+            if (res.ok) {
+                this.openingCashSaved = true;
+                setTimeout(() => { this.openingCashSaved = false; }, 2000);
+            }
+        } catch (e) {
+            console.error('Failed to save opening cash', e);
         }
     },
 

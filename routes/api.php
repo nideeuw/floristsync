@@ -56,6 +56,8 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('transactions/{transaction}/qris', [PosQrisController::class, 'store']);
         Route::get('transactions/{transaction}/qris', [PosQrisController::class, 'show']);
         Route::delete('transactions/{transaction}/qris', [PosQrisController::class, 'destroy']);
+        Route::post('shift/opening-cash', [PosController::class, 'updateOpeningCash']);
+        Route::post('shift/close', [PosController::class, 'closeShift']);
     });
 
     // Orders
