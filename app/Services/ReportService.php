@@ -21,13 +21,14 @@ class ReportService
     /** Numbers for the dashboard cards. */
     public function today(): array
     {
-        $row = Transaction::successful()
-            ->where('created_on', '>=', now()->startOfDay())
-            ->selectRaw('COUNT(*) as orders, COALESCE(SUM(total), 0) as revenue')
+        $row = DB::table('view_sales_daily')
+            ->where('day', now()->toDateString())
+            ->selectRaw('COALESCE(SUM(orders), 0) as orders, COALESCE(SUM(revenue), 0) as revenue, COALESCE(SUM(shipping), 0) as shipping')
             ->first();
 
         return [
             'revenue' => (int) $row->revenue,
+            'shipping' => (int) $row->shipping,
             'orders' => (int) $row->orders,
             'to_process' => Transaction::where('status', Transaction::PROCESSING)->count(),
             'low_stock' => Product::active()->lowStock()->count(),
@@ -36,10 +37,10 @@ class ReportService
 
     public function summary(Carbon $from, Carbon $to, ?string $type = null): array
     {
-        $rows = Transaction::successful()
-            ->whereBetween('created_on', [$from, $to])
+        $rows = DB::table('view_sales_daily')
+            ->whereBetween('day', [$from->toDateString(), $to->toDateString()])
             ->when($type, fn ($q, $v) => $q->where('transaction_type', $v))
-            ->selectRaw('transaction_type, COUNT(*) as orders, SUM(total) as revenue')
+            ->selectRaw('transaction_type, SUM(orders) as orders, SUM(revenue) as revenue, SUM(shipping) as shipping')
             ->groupBy('transaction_type')
             ->get()
             ->keyBy('transaction_type');
@@ -53,6 +54,7 @@ class ReportService
             'average' => $orders > 0 ? intdiv($revenue, $orders) : 0,
             'pos_revenue' => (int) ($rows->get(Transaction::TYPE_POS)?->revenue ?? 0),
             'online_revenue' => (int) ($rows->get(Transaction::TYPE_ONLINE)?->revenue ?? 0),
+            'shipping' => (int) $rows->sum('shipping'),
         ];
     }
 
@@ -86,17 +88,37 @@ class ReportService
     public function paymentMethodShare(Carbon $from, Carbon $to): Collection
     {
         return Transaction::successful()
-            ->whereBetween('created_on', [$from, $to])
+            ->whereBetween(DB::raw($this->reportDaySql('transactions')), [$from, $to])
             ->with('payment')
             ->get()
             ->groupBy(fn (Transaction $transaction) => strtoupper(str_replace('_', ' ', $transaction->payment?->payment_method ?? 'unknown')))
             ->map(fn (Collection $rows, string $label) => [
                 'label' => $label,
                 'orders' => $rows->count(),
-                'revenue' => (int) $rows->sum('total'),
+                'revenue' => (int) $rows->sum(fn (Transaction $transaction) => (int) $transaction->total - (int) ($transaction->shipping_cost ?? 0)),
             ])
             ->sortByDesc('orders')
             ->values();
+    }
+
+    /**
+     * The day a transaction counts on in reports — online orders use the
+     * latest payment's payment_date, POS uses created_on. Must stay in sync
+     * with the same expression inside view_sales_daily / view_product_sales
+     * (migration 2026_11_19_000002). $alias is the transactions table alias.
+     *
+     * Timestamps are `timestamp without time zone` written in the app
+     * timezone (Asia/Jakarta), so DATE() already groups on the Jakarta day.
+     */
+    private function reportDaySql(string $alias): string
+    {
+        return "CASE WHEN {$alias}.transaction_type = 'online'
+            THEN COALESCE((
+                SELECT pm.payment_date FROM payments pm
+                WHERE pm.transaction_id = {$alias}.id
+                ORDER BY pm.id DESC LIMIT 1
+            ), {$alias}.created_on)
+            ELSE {$alias}.created_on END";
     }
 
     public function ownerDashboard(int $days = 30): array
@@ -150,6 +172,7 @@ class ReportService
                 ['key' => 'orders', 'label' => 'Orders', 'type' => 'int'],
                 ['key' => 'pos_revenue', 'label' => 'POS', 'type' => 'money'],
                 ['key' => 'online_revenue', 'label' => 'Online', 'type' => 'money'],
+                ['key' => 'shipping', 'label' => 'Shipping', 'type' => 'money'],
                 ['key' => 'revenue', 'label' => 'Total', 'type' => 'money'],
             ],
         };
@@ -200,7 +223,7 @@ class ReportService
 
             return [
                 ['label' => 'Products', 'value' => $count($a->n), 'hint' => null],
-                ['label' => 'Low stock', 'value' => $count($a->low), 'hint' => 'At or below ' . (int) config('floristsync.low_stock_threshold')],
+                ['label' => 'Low stock', 'value' => $count($a->low), 'hint' => 'At or below '.(int) config('floristsync.low_stock_threshold')],
                 ['label' => 'Out of stock', 'value' => $count($a->out_of_stock), 'hint' => null],
             ];
         }
@@ -217,10 +240,10 @@ class ReportService
         $s = $this->summary($f['from'], $f['to'], $f['type'] ?? null);
 
         return [
-            ['label' => 'Revenue', 'value' => rupiah($s['revenue']), 'hint' => null],
+            ['label' => 'Revenue', 'value' => rupiah($s['revenue']), 'hint' => 'Shipping collected: '.rupiah($s['shipping'])],
             ['label' => 'Orders', 'value' => $count($s['orders']), 'hint' => null],
             ['label' => 'Average order value', 'value' => rupiah($s['average']), 'hint' => null],
-            ['label' => 'POS vs online', 'value' => rupiah($s['pos_revenue']), 'hint' => 'Online: ' . rupiah($s['online_revenue'])],
+            ['label' => 'POS vs online', 'value' => rupiah($s['pos_revenue']), 'hint' => 'Online: '.rupiah($s['online_revenue'])],
         ];
     }
 
@@ -240,9 +263,10 @@ class ReportService
             ->when($f['type'] ?? null, fn ($q, $v) => $q->where('transaction_type', $v))
             ->selectRaw(
                 'day, SUM(orders) as orders, '
-                . 'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as pos_revenue, '
-                . 'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as online_revenue, '
-                . 'SUM(revenue) as revenue',
+                .'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as pos_revenue, '
+                .'SUM(CASE WHEN transaction_type = ? THEN revenue ELSE 0 END) as online_revenue, '
+                .'SUM(shipping) as shipping, '
+                .'SUM(revenue) as revenue',
                 [Transaction::TYPE_POS, Transaction::TYPE_ONLINE]
             )
             ->groupBy('day')

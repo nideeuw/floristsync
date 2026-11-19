@@ -5,7 +5,7 @@
 
 <x-staff-layout title="Dashboard">
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <x-stat-card label="Revenue today (store + online)" :value="rupiah($today['revenue'])" />
+        <x-stat-card label="Revenue today (store + online)" :value="rupiah($today['revenue'])" :hint="'Shipping collected: ' . rupiah($today['shipping'] ?? 0)" />
         <x-stat-card label="Orders today" :value="$today['orders']" />
         <x-stat-card label="Online orders to process" :value="$today['to_process']" hint="Paid, waiting for shipping or pickup" />
         <x-stat-card label="Low stock products" :value="$today['low_stock']"
