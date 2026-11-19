@@ -52,12 +52,15 @@ class TransactionHistoryService
 
     private function search(Builder $query, string $term): Builder
     {
+        $term = trim($term);
         if ($term === '') {
             return $query;
         }
 
-        return $query->where(function (Builder $q) use ($term) {
-            $q->whereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'ilike', '%' . $term . '%'));
+        $escaped = escape_like($term);
+
+        return $query->where(function (Builder $q) use ($term, $escaped) {
+            $q->whereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'ilike', '%'.$escaped.'%'));
 
             if (preg_match('/^(?:POS-)?0*(\d+)$/i', $term, $match)) {
                 $q->orWhere(function (Builder $pos) use ($match) {

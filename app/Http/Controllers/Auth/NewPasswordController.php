@@ -8,11 +8,12 @@ use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class NewPasswordController extends Controller
@@ -49,6 +50,14 @@ class NewPasswordController extends Controller
         if ($status == Password::PASSWORD_RESET) {
             $resetUser ??= User::where('email', $request->input('email'))->first();
             $resetUser?->loadMissing('role');
+
+            if ($resetUser && Schema::hasTable(config('session.table', 'sessions'))) {
+                DB::table(config('session.table', 'sessions'))
+                    ->where('user_id', $resetUser->id)
+                    ->delete();
+            }
+
+            $request->session()->regenerate();
 
             $targetRoute = match (true) {
                 $resetUser?->hasRole(...Role::POS_ROLES) => 'cashier.login',

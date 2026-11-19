@@ -37,8 +37,8 @@ class StaffService
             ->whereHas('role', fn (Builder $q) => $q->whereIn('role_name', self::ROLES))
             ->when($filters['role_id'] ?? null, fn (Builder $q, $value) => $q->where('role_id', $value))
             ->when($filters['status'] ?? null, fn (Builder $q, $value) => $q->where('is_active', $value === 'active'))
-            ->when($filters['q'] ?? null, function (Builder $q, $value) {
-                $term = '%' . trim($value) . '%';
+            ->when(filled($filters['q'] ?? null), function (Builder $q) use ($filters) {
+                $term = '%'.escape_like($filters['q']).'%';
                 $q->where(fn (Builder $w) => $w->where('name', 'ilike', $term)->orWhere('email', 'ilike', $term));
             })
             ->orderByDesc('is_active')
@@ -51,7 +51,7 @@ class StaffService
     {
         $this->assertStaffRole((int) $data['role_id']);
 
-        $staff = new User();
+        $staff = new User;
         $staff->fill(Arr::only($data, ['role_id', 'name', 'email', 'phone', 'password']));
         $staff->is_active = true;
         $staff->save();
@@ -79,7 +79,7 @@ class StaffService
 
         $staff->save();
 
-        if (! $staff->is_active) {
+        if (! $staff->is_active || ! empty($data['password'])) {
             $this->endSessions($staff);
         }
 

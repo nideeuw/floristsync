@@ -8,12 +8,21 @@ use App\Services\StaffService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
-class StaffController extends Controller
+class StaffController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('password.confirm', only: ['store', 'update', 'destroy']),
+        ];
+    }
+
     public function __construct(private StaffService $staffService) {}
 
     public function index(Request $request): View

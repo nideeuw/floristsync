@@ -67,8 +67,8 @@ class PasswordResetTest extends TestCase
             $response = $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
-                'password' => 'password',
-                'password_confirmation' => 'password',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
             ]);
 
             $response
@@ -88,7 +88,7 @@ class PasswordResetTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertSessionHas('status', __('passwords.sent'));
+        $response->assertSessionHas('status', 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.');
         Notification::assertNothingSent();
     }
 

@@ -4,12 +4,19 @@ namespace App\Providers;
 
 use App\Http\Middleware\PreventBackHistory;
 use App\Mail\Transport\GmailScriptTransport;
+use App\Models\Role;
+use App\Models\User;
 use App\View\Composers\MenuComposer;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\SQLiteConnection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,11 +33,55 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Connection::resolverFor('sqlite', function ($connection, $database, $prefix, $config) {
+            $conn = new SQLiteConnection($connection, $database, $prefix, $config);
+            $conn->setQueryGrammar(new class($conn) extends SQLiteGrammar
+            {
+                protected function whereBasic(Builder $query, $where)
+                {
+                    if (isset($where['operator']) && strtolower($where['operator']) === 'ilike') {
+                        $where['operator'] = 'like';
+                    }
+
+                    return parent::whereBasic($query, $where);
+                }
+            });
+
+            return $conn;
+        });
+
         $this->app['router']->aliasMiddleware('prevent-back', PreventBackHistory::class);
         $this->app['router']->aliasMiddleware('no-cache', PreventBackHistory::class);
 
-        $this->app['router']->aliasMiddleware('prevent-back', \App\Http\Middleware\PreventBackHistory::class);
-        $this->app['router']->aliasMiddleware('no-cache', \App\Http\Middleware\PreventBackHistory::class);
+        Password::defaults(function () {
+            $isStaff = false;
+            $request = request();
+
+            if ($request) {
+                if ($request->is('admin/staff', 'admin/staff/*')) {
+                    $isStaff = true;
+                } elseif ($user = $request->user()) {
+                    if (method_exists($user, 'hasRole') && ! $user->hasRole(Role::MEMBER)) {
+                        $isStaff = true;
+                    }
+                } elseif ($email = $request->input('email')) {
+                    try {
+                        $targetUser = User::where('email', $email)->first();
+                        if ($targetUser && method_exists($targetUser, 'hasRole') && ! $targetUser->hasRole(Role::MEMBER)) {
+                            $isStaff = true;
+                        }
+                    } catch (\Throwable) {
+                        // ignore DB errors during migrations or offline checks
+                    }
+                }
+            }
+
+            $rule = $isStaff
+                ? Password::min(10)
+                : Password::min(8)->letters()->numbers();
+
+            return app()->isProduction() ? $rule->uncompromised() : $rule;
+        });
 
         Mail::extend('gmailscript', function (array $config) {
             return new GmailScriptTransport((string) $config['script_url'], (string) $config['secret']);

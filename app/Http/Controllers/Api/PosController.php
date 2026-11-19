@@ -28,14 +28,16 @@ class PosController extends Controller
     /** Small search endpoint for members only (by phone, ID, or name). */
     public function members(Request $request): JsonResponse
     {
-        $q = trim((string) $request->input('q', ''));
+        $raw = (string) $request->input('q', '');
+        $q = trim($raw);
 
         $query = User::query()
             ->whereHas('role', fn ($r) => $r->where('role_name', Role::MEMBER))
             ->where('is_active', true);
 
         if ($q !== '') {
-            $query->where(function ($sub) use ($q) {
+            $escaped = escape_like($q);
+            $query->where(function ($sub) use ($q, $escaped) {
                 // If prefixed with '#' -> Member ID
                 if (str_starts_with($q, '#')) {
                     $cleanId = ltrim($q, '#');
@@ -48,7 +50,7 @@ class PosController extends Controller
 
                 // If starts with '0' or '+', it's a phone search
                 if (str_starts_with($q, '0') || str_starts_with($q, '+')) {
-                    $sub->where('phone', 'ilike', "%{$q}%");
+                    $sub->where('phone', 'ilike', "%{$escaped}%");
 
                     return;
                 }
@@ -57,15 +59,15 @@ class PosController extends Controller
                 if (ctype_digit($q)) {
                     $sub->where('id', (int) $q);
                     if (strlen($q) >= 4) {
-                        $sub->orWhere('phone', 'ilike', "%{$q}%");
+                        $sub->orWhere('phone', 'ilike', "%{$escaped}%");
                     }
 
                     return;
                 }
 
                 // Otherwise, search by name or phone
-                $sub->where('phone', 'ilike', "%{$q}%")
-                    ->orWhere('name', 'ilike', "%{$q}%");
+                $sub->where('phone', 'ilike', "%{$escaped}%")
+                    ->orWhere('name', 'ilike', "%{$escaped}%");
             });
         }
 

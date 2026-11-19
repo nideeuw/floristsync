@@ -18,7 +18,7 @@ class OrderController extends Controller
     /** Online orders only. POS sales are completed at the cashier terminal. */
     public function index(Request $request): View
     {
-        $online = fn() => Transaction::where('transaction_type', Transaction::TYPE_ONLINE);
+        $online = fn () => Transaction::where('transaction_type', Transaction::TYPE_ONLINE);
 
         $counts = $online()
             ->selectRaw('status, COUNT(*) as total')
@@ -27,16 +27,22 @@ class OrderController extends Controller
 
         $orders = $online()
             ->with('payment', 'user:id,name')
-            ->when($request->query('status'), fn($q, $v) => $q->where('status', $v))
-            ->when($request->query('fulfillment') === 'delivery', fn($q) => $q->whereNotNull('courier'))
-            ->when($request->query('fulfillment') === 'pickup', fn($q) => $q->whereNull('courier'))
-            ->when($request->query('q'), fn($q, $v) => $q->where(function ($w) use ($v) {
-                $w->whereHas('payments', fn($p) => $p->where('midtrans_order_id', 'ilike', "%{$v}%"));
+            ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
+            ->when($request->query('fulfillment') === 'delivery', fn ($q) => $q->whereNotNull('courier'))
+            ->when($request->query('fulfillment') === 'pickup', fn ($q) => $q->whereNull('courier'))
+            ->when(filled($request->query('q')), function ($q) use ($request) {
+                $v = (string) $request->query('q');
+                $term = escape_like($v);
 
-                if (ctype_digit($v)) {
-                    $w->orWhere('id', (int) $v);
-                }
-            }))
+                $q->where(function ($w) use ($v, $term) {
+                    $w->whereHas('payments', fn ($p) => $p->where('midtrans_order_id', 'ilike', "%{$term}%"));
+
+                    $trimmed = trim($v);
+                    if (ctype_digit($trimmed)) {
+                        $w->orWhere('id', (int) $trimmed);
+                    }
+                });
+            })
             ->latest('id')
             ->paginate(15)
             ->withQueryString();

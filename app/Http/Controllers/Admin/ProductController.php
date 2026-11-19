@@ -20,9 +20,9 @@ class ProductController extends Controller
     public function index(Request $request): View
     {
         $products = Product::withStock()->with('category')
-            ->when($request->query('q'), fn($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
-            ->when($request->query('category'), fn($q, $v) => $q->where('category_id', $v))
-            ->when($request->query('status'), fn($q, $v) => $q->where('status', $v))
+            ->when(filled($request->query('q')), fn ($q) => $q->where('product_name', 'ilike', '%'.escape_like($request->query('q')).'%'))
+            ->when($request->query('category'), fn ($q, $v) => $q->where('category_id', $v))
+            ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
             ->orderBy('product_name')
             ->paginate(10)
             ->withQueryString();

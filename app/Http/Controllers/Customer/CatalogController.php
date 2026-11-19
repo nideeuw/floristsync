@@ -17,7 +17,7 @@ class CatalogController extends Controller
         $products = Product::withStock()->with('category')
             ->available()
             ->when($request->query('category'), fn ($q, $v) => $q->where('category_id', $v))
-            ->when($request->query('q'), fn ($q, $v) => $q->where('product_name', 'ilike', "%{$v}%"))
+            ->when(filled($request->query('q')), fn ($q) => $q->where('product_name', 'ilike', '%'.escape_like($request->query('q')).'%'))
             ->when($sort === 'price_asc', fn ($q) => $q->orderBy('price'))
             ->when($sort === 'price_desc', fn ($q) => $q->orderByDesc('price'))
             ->when($sort === 'name', fn ($q) => $q->orderBy('product_name'))
