@@ -153,4 +153,74 @@ class OrderStatusTransitionTest extends TestCase
         $this->assertSame([], $service->allowedNextStatuses($this->order(Transaction::COMPLETED)));
         $this->assertSame([], $service->allowedNextStatuses($this->order(Transaction::PROCESSING, false, Transaction::TYPE_POS)));
     }
+
+    public function test_tc052_tracking_number_of_50_characters_is_saved(): void
+    {
+        $order = $this->order(Transaction::PROCESSING, delivery: true);
+        $trackingNumber50 = str_repeat('A', 50);
+
+        $this->actingAs($this->admin);
+
+        $response = $this->patch(route('admin.orders.tracking', $order), [
+            'tracking_number' => $trackingNumber50,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('success', 'Tracking number saved. Order marked as shipped.');
+
+        $order->refresh();
+        $this->assertSame($trackingNumber50, $order->tracking_number);
+        $this->assertSame(Transaction::SHIPPED, $order->status);
+    }
+
+    public function test_tc052_tracking_number_of_51_characters_is_refused(): void
+    {
+        $order = $this->order(Transaction::PROCESSING, delivery: true);
+        $trackingNumber51 = str_repeat('B', 51);
+
+        $this->actingAs($this->admin);
+
+        $response = $this->patch(route('admin.orders.tracking', $order), [
+            'tracking_number' => $trackingNumber51,
+        ]);
+
+        $response->assertSessionHasErrors('tracking_number');
+
+        $order->refresh();
+        $this->assertNull($order->tracking_number);
+        $this->assertSame(Transaction::PROCESSING, $order->status);
+    }
+
+    public function test_tc052_api_tracking_number_of_50_chars_is_saved_and_51_is_refused(): void
+    {
+        $order = $this->order(Transaction::PROCESSING, delivery: true);
+        $this->actingAs($this->admin);
+
+        // 50 characters accepted via API
+        $valid50 = str_repeat('X', 50);
+        $this->patchJson("/api/orders/{$order->id}/tracking-number", [
+            'tracking_number' => $valid50,
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Tracking number saved.');
+
+        $order->refresh();
+        $this->assertSame($valid50, $order->tracking_number);
+        $this->assertSame(Transaction::SHIPPED, $order->status);
+
+        // Reset order back to processing
+        $order->update(['status' => Transaction::PROCESSING, 'tracking_number' => null]);
+
+        // 51 characters rejected via API
+        $invalid51 = str_repeat('Y', 51);
+        $this->patchJson("/api/orders/{$order->id}/tracking-number", [
+            'tracking_number' => $invalid51,
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('tracking_number');
+
+        $order->refresh();
+        $this->assertNull($order->tracking_number);
+        $this->assertSame(Transaction::PROCESSING, $order->status);
+    }
 }
