@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Mockery\MockInterface;
 use Tests\TestCase;
+use Database\Factories\ProductFactory;
 
 class CheckoutStockTest extends TestCase
 {
@@ -80,7 +81,7 @@ class CheckoutStockTest extends TestCase
 
     public function test_checkout_rejects_out_of_stock(): void
     {
-        $this->product->update(['stock' => 1]);
+        ProductFactory::setStock($this->product, 1);
 
         try {
             app(TransactionService::class)->createOnlineTransaction(
@@ -121,7 +122,7 @@ class CheckoutStockTest extends TestCase
 
     public function test_stock_never_goes_below_zero(): void
     {
-        $this->product->update(['stock' => 2]);
+        ProductFactory::setStock($this->product, 2);
 
         $service = app(TransactionService::class);
         $items = [['product_id' => $this->product->id, 'qty' => 2]];
