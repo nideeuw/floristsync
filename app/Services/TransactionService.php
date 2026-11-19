@@ -19,6 +19,9 @@ class TransactionService
 
     private const AFTER_PAYMENT_STATUSES = ['refund', 'partial_refund', 'chargeback', 'partial_chargeback'];
 
+    // Every transaction_status Midtrans can send. Anything else is logged and ignored.
+    private const KNOWN_STATUSES = ['pending', 'authorize', 'capture', 'settlement', 'deny', 'cancel', 'expire', 'failure', 'refund', 'partial_refund', 'chargeback', 'partial_chargeback'];
+
     public function __construct(
         private InventoryService $inventory,
         private MidtransService $midtrans,
@@ -163,18 +166,28 @@ class TransactionService
 
     public function updatePaymentStatus(array $notification): void
     {
-        DB::transaction(function () use ($notification) {
-            $orderId = $notification['order_id'] ?? null;
-            if (! $orderId) {
-                return;
-            }
+        $status = $notification['transaction_status'] ?? null;
 
-            $payment = Payment::where('midtrans_order_id', $orderId)
-                ->lockForUpdate()
-                ->first();
+        if (! is_string($status) || ! in_array($status, self::KNOWN_STATUSES, true)) {
+            Log::warning('Midtrans notification ignored: unknown transaction_status.', [
+                'order_id' => $notification['order_id'] ?? null,
+                'transaction_status' => is_scalar($status) ? $status : null,
+            ]);
+
+            return;
+        }
+
+        DB::transaction(function () use ($notification, $status) {
+            $orderId = $notification['order_id'] ?? null;
+
+            $payment = $orderId
+                ? Payment::where('midtrans_order_id', $orderId)->lockForUpdate()->first()
+                : null;
 
             if (! $payment) {
-                return;
+                Log::warning('Midtrans notification for an unknown order.', ['order_id' => $orderId]);
+
+                throw (new \Illuminate\Database\Eloquent\ModelNotFoundException)->setModel(Payment::class, [(string) $orderId]);
             }
 
             $this->assertAmountMatches($payment, $notification);
@@ -182,8 +195,6 @@ class TransactionService
             $transaction = Transaction::whereKey($payment->transaction_id)
                 ->lockForUpdate()
                 ->firstOrFail();
-
-            $status = $notification['transaction_status'];
 
             if ($payment->payment_date !== null && ! in_array($status, self::AFTER_PAYMENT_STATUSES, true) && ! ($status === 'settlement' && $payment->payment_status === 'capture')) {
                 return;
@@ -389,12 +400,23 @@ class TransactionService
 
     private function assertAmountMatches(Payment $payment, array $notification): void
     {
-        if (! isset($notification['gross_amount'])) {
-            return;
-        }
+        $mustHaveAmount = in_array($notification['transaction_status'] ?? null, ['settlement', 'capture'], true);
 
-        if ((int) round((float) $notification['gross_amount']) !== (int) round((float) $payment->amount)) {
-            throw new DomainException("Amount mismatch for order {$payment->midtrans_order_id}.");
+        // gross_amount is the amount in the Midtrans response, notified_gross_amount the one in the signed body.
+        foreach (['gross_amount', 'notified_gross_amount'] as $key) {
+            $amount = $notification[$key] ?? null;
+
+            if ($amount === null || $amount === '') {
+                if ($key === 'gross_amount' && $mustHaveAmount) {
+                    throw new DomainException("Amount is missing for order {$payment->midtrans_order_id}.");
+                }
+
+                continue;
+            }
+
+            if (! is_numeric($amount) || (int) round((float) $amount) !== (int) round((float) $payment->amount)) {
+                throw new DomainException("Amount mismatch for order {$payment->midtrans_order_id}.");
+            }
         }
     }
 
