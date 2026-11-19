@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\ShippingService;
 use Database\Seeders\RolesMenusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\RateLimiter;
 use Mockery;
 use RuntimeException;
@@ -27,6 +28,12 @@ class ErrorPagesAndHardeningTest extends TestCase
         RateLimiter::clear('127.0.0.1|pos/login');
     }
 
+    protected function tearDown(): void
+    {
+        TrustProxies::at(env('TRUSTED_PROXIES', '*'));
+        parent::tearDown();
+    }
+
     public function test_error_views_can_be_rendered(): void
     {
         foreach ([403, 404, 419, 429, 500, 503] as $code) {
@@ -40,7 +47,7 @@ class ErrorPagesAndHardeningTest extends TestCase
         $response = $this->get('/non-existent-page-xyz');
 
         $response->assertStatus(404);
-        $response->assertSee('Error 404');
+        $response->assertSee('404');
         $response->assertSee('Page Not Found');
         $response->assertSee('Back to Home');
     }
@@ -50,9 +57,8 @@ class ErrorPagesAndHardeningTest extends TestCase
         $response = $this->get('/admin/non-existent-page-xyz');
 
         $response->assertStatus(404);
-        $response->assertSee('Error 404');
-        $response->assertSee('Admin Home');
-        $response->assertSee('app-sidebar');
+        $response->assertSee('404');
+        $response->assertSee('Back to shop');
     }
 
     public function test_error_page_uses_staff_layout_for_authenticated_admin(): void
@@ -66,7 +72,7 @@ class ErrorPagesAndHardeningTest extends TestCase
         $response = $this->actingAs($admin)->get('/admin/non-existent-page-xyz');
 
         $response->assertStatus(404);
-        $response->assertSee('Error 404');
+        $response->assertSee('404');
         $response->assertSee('app-sidebar');
         $response->assertSee('Admin Jane');
     }
@@ -76,8 +82,8 @@ class ErrorPagesAndHardeningTest extends TestCase
         $response = $this->get('/pos/non-existent-page-xyz');
 
         $response->assertStatus(404);
-        $response->assertSee('Error 404');
-        $response->assertSee('POS Terminal');
+        $response->assertSee('404');
+        $response->assertSee('Back to shop');
     }
 
     public function test_error_page_uses_pos_layout_for_authenticated_cashier(): void
@@ -91,51 +97,197 @@ class ErrorPagesAndHardeningTest extends TestCase
         $response = $this->actingAs($cashier)->get('/pos/non-existent-page-xyz');
 
         $response->assertStatus(404);
-        $response->assertSee('Error 404');
+        $response->assertSee('404');
         $response->assertSee('Cashier Bob');
+        $response->assertSee('POS Terminal');
     }
 
-    public function test_login_post_requests_are_throttled_per_ip_and_path(): void
+    public function test_five_wrong_passwords_then_sixth_is_blocked_even_with_right_password(): void
     {
+        $user = User::factory()->create([
+            'email' => 'victim@example.com',
+            'password' => bcrypt('correct-password'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
         for ($i = 0; $i < 5; $i++) {
             $response = $this->post('/login', [
-                'email' => 'wrong'.$i.'@example.com',
-                'password' => 'wrongpass',
+                'email' => $user->email,
+                'password' => 'wrong-pass-'.$i,
             ]);
-            $this->assertNotEquals(429, $response->getStatusCode());
+            $response->assertSessionHasErrors('email');
+            $this->assertGuest();
         }
 
-        // 6th attempt to /login should be throttled
+        // 6th attempt with correct password is still blocked
         $response = $this->post('/login', [
-            'email' => 'another@example.com',
-            'password' => 'wrongpass',
+            'email' => $user->email,
+            'password' => 'correct-password',
         ]);
-        $response->assertStatus(429);
-
-        // Different path (/admin/login) from same IP is not blocked by /login attempts
-        $adminResponse = $this->post('/admin/login', [
-            'email' => 'admin@example.com',
-            'password' => 'wrongpass',
-        ]);
-        $this->assertNotEquals(429, $adminResponse->getStatusCode());
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->assertStringContainsString('Too many login attempts', session('errors')->first('email'));
     }
 
-    public function test_pos_login_post_requests_are_throttled_per_ip_and_path(): void
+    public function test_another_email_from_same_ip_is_not_blocked(): void
     {
+        $user1 = User::factory()->create([
+            'email' => 'blocked@example.com',
+            'password' => bcrypt('password123'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        $user2 = User::factory()->create([
+            'email' => 'allowed@example.com',
+            'password' => bcrypt('password123'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
         for ($i = 0; $i < 5; $i++) {
-            $response = $this->post('/pos/login', [
-                'email' => 'cashier'.$i.'@example.com',
+            $this->post('/login', [
+                'email' => $user1->email,
+                'password' => 'wrong-pass',
+            ]);
+        }
+
+        // User 1 is blocked
+        $this->post('/login', [
+            'email' => $user1->email,
+            'password' => 'password123',
+        ]);
+        $this->assertGuest();
+
+        // User 2 from the same IP is not blocked
+        $response = $this->post('/login', [
+            'email' => $user2->email,
+            'password' => 'password123',
+        ]);
+        $this->assertAuthenticatedAs($user2);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_a_success_clears_the_counter(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'clear_test@example.com',
+            'password' => bcrypt('password123'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        // 4 failed attempts
+        for ($i = 0; $i < 4; $i++) {
+            $this->post('/login', [
+                'email' => $user->email,
+                'password' => 'wrong-pass',
+            ]);
+            $this->assertGuest();
+        }
+
+        // 5th attempt succeeds
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+        $this->assertAuthenticatedAs($user);
+
+        // Logout
+        $this->post('/logout');
+        $this->assertGuest();
+
+        // User can fail again up to 4 times without being locked out
+        for ($i = 0; $i < 4; $i++) {
+            $this->post('/login', [
+                'email' => $user->email,
+                'password' => 'wrong-pass',
+            ]);
+            $this->assertGuest();
+        }
+
+        // Next attempt with right password succeeds because previous counter was cleared
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_five_successful_logins_in_one_minute_from_one_ip_are_all_allowed(): void
+    {
+        $users = User::factory()->count(5)->create([
+            'password' => bcrypt('password123'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        foreach ($users as $user) {
+            $response = $this->post('/login', [
+                'email' => $user->email,
+                'password' => 'password123',
+            ]);
+
+            $this->assertNotEquals(429, $response->getStatusCode());
+            $this->assertAuthenticatedAs($user);
+            $response->assertRedirect(route('dashboard', absolute: false));
+
+            $this->post('/logout');
+            $this->assertGuest();
+        }
+    }
+
+    public function test_spoofed_x_forwarded_for_does_not_create_new_bucket_when_proxies_are_restricted(): void
+    {
+        TrustProxies::at('10.0.0.1');
+
+        $user = User::factory()->create([
+            'email' => 'spoof_target@example.com',
+            'password' => bcrypt('target-pass'),
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        // 5 failed attempts with varying spoofed X-Forwarded-For headers
+        for ($i = 1; $i <= 5; $i++) {
+            $this->withHeaders(['X-Forwarded-For' => "198.51.100.{$i}"])
+                ->post('/login', [
+                    'email' => $user->email,
+                    'password' => 'wrong-pass',
+                ]);
+            $this->assertGuest();
+        }
+
+        // 6th attempt with correct password and yet another spoofed IP is STILL blocked
+        $response = $this->withHeaders(['X-Forwarded-For' => '203.0.113.99'])
+            ->post('/login', [
+                'email' => $user->email,
+                'password' => 'target-pass',
+            ]);
+
+        $this->assertGuest();
+        $response->assertSessionHasErrors('email');
+        $this->assertStringContainsString('Too many login attempts', session('errors')->first('email'));
+    }
+
+    public function test_coarse_failure_limit_triggers_429_page_after_max_failed_attempts(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $response = $this->post('/login', [
+                'email' => 'spray'.$i.'@example.com',
                 'password' => 'wrongpass',
             ]);
             $this->assertNotEquals(429, $response->getStatusCode());
         }
 
-        // 6th attempt to /pos/login should be throttled
-        $response = $this->post('/pos/login', [
-            'email' => 'cashier_another@example.com',
+        // 31st failed attempt from the same IP triggers coarse rate limit (429)
+        $response = $this->post('/login', [
+            'email' => 'spray_another@example.com',
             'password' => 'wrongpass',
         ]);
         $response->assertStatus(429);
+        $response->assertSee('429');
     }
 
     public function test_inactive_member_is_logged_out_and_redirected_to_login(): void

@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -15,9 +16,11 @@ class ThrottleLoginRequests
      *
      * @param  Closure(Request): (Response)  $next
      */
-    public function handle(Request $request, Closure $next, int $maxAttempts = 5, int $decaySeconds = 60): Response
+    public function handle(Request $request, Closure $next, int $maxAttempts = 30, int $decaySeconds = 60): Response
     {
-        if ($request->isMethod('POST') && $request->is('login', 'admin/login', 'pos/login')) {
+        $isLoginPost = $request->isMethod('POST') && $request->is('login', 'admin/login', 'pos/login');
+
+        if ($isLoginPost) {
             $key = ($request->ip() ?? '127.0.0.1').'|'.trim($request->path(), '/');
 
             if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
@@ -33,10 +36,26 @@ class ThrottleLoginRequests
                     ]
                 );
             }
-
-            RateLimiter::hit($key, $decaySeconds);
         }
 
-        return $next($request);
+        try {
+            $response = $next($request);
+        } catch (\Throwable $e) {
+            if ($isLoginPost && ! Auth::check()) {
+                RateLimiter::hit($key, $decaySeconds);
+            }
+
+            throw $e;
+        }
+
+        if ($isLoginPost) {
+            if (Auth::check()) {
+                RateLimiter::clear($key);
+            } else {
+                RateLimiter::hit($key, $decaySeconds);
+            }
+        }
+
+        return $response;
     }
 }
