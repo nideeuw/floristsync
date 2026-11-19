@@ -81,6 +81,22 @@ export default () => ({
     get itemCount() { return this.cart.reduce((sum, i) => sum + i.qty, 0); },
     get change() { return Math.max(0, Number(this.paid) - this.total); },
 
+    get isCashShort() {
+        return this.method === 'cash' && this.cart.length > 0 && Number(this.paid) < this.total;
+    },
+
+    get cashShortAmount() {
+        return Math.max(0, this.total - Number(this.paid));
+    },
+
+    get cashShortMessage() {
+        return this.isCashShort ? `Cash is short by ${this.rupiah(this.cashShortAmount)}` : '';
+    },
+
+    get cashErrorMessage() {
+        return this.error || this.cashShortMessage;
+    },
+
     get canPay() {
         return this.cart.length > 0 && !this.loading &&
             (this.method !== 'cash' || Number(this.paid) >= this.total);
@@ -353,6 +369,7 @@ export default () => ({
         this.success = null;
         this.cart = [];
         this.paid = '';
+        this.error = '';
         this.method = 'cash';
         this.member = null;
         this.memberQuery = '';

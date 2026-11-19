@@ -182,7 +182,7 @@
                 {{-- Payment method --}}
                 <div class="grid grid-cols-3 gap-2">
                     <template x-for="m in [{ key: 'cash', label: 'Cash' }, { key: 'qris', label: 'QRIS' }, { key: 'debit', label: 'Debit' }]" :key="m.key">
-                        <button type="button" x-on:click="method = m.key" x-text="m.label"
+                        <button type="button" x-on:click="method = m.key; error = ''" x-text="m.label"
                             :class="method === m.key ? 'bg-moss text-white' : 'bg-white border border-blush hover:bg-blush/50'"
                             class="rounded-xl py-2 text-sm font-semibold"></button>
                     </template>
@@ -190,13 +190,15 @@
 
                 {{-- Cash --}}
                 <div x-show="method === 'cash'" x-cloak class="space-y-2">
-                    <input type="number" min="0" x-model="paid" placeholder="Cash received" class="input">
+                    <input type="number" min="0" x-model="paid" x-on:input="error = ''" placeholder="Cash received" class="input">
+
+                    <div x-show="cashErrorMessage" x-cloak class="text-xs font-semibold text-red-600" x-text="cashErrorMessage"></div>
 
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" x-on:click="paid = total" :disabled="!cart.length"
+                        <button type="button" x-on:click="paid = total; error = ''" :disabled="!cart.length"
                             class="rounded-full bg-blush/70 px-3 py-1 text-xs font-semibold hover:bg-blush disabled:opacity-40">Exact</button>
                         <template x-for="amount in [50000, 100000, 200000]" :key="amount">
-                            <button type="button" x-on:click="paid = amount" x-text="rupiah(amount)"
+                            <button type="button" x-on:click="paid = amount; error = ''" x-text="rupiah(amount)"
                                 class="rounded-full bg-blush/70 px-3 py-1 text-xs font-semibold hover:bg-blush"></button>
                         </template>
                     </div>
@@ -214,7 +216,7 @@
                     Generates an interactive QRIS code via Midtrans on screen for the customer to scan.
                 </p>
 
-                <div x-show="error" x-cloak x-text="error" class="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-800"></div>
+                <div x-show="error && method !== 'cash'" x-cloak x-text="error" class="rounded-xl bg-red-100 px-3 py-2 text-sm text-red-800"></div>
 
                 <button type="button" x-on:click="pay()" :disabled="!canPay" class="btn-primary w-full py-3 text-base">
                     <span x-text="loading ? 'Processing...' : (method === 'qris' ? 'Generate QRIS · ' + rupiah(total) : 'Complete Order · ' + rupiah(total))"></span>

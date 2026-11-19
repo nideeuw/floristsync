@@ -264,4 +264,63 @@ class PosQrisTest extends TestCase
         // Stock restored back
         $this->assertSame($initialStock, $this->product->fresh()->stock);
     }
+
+    public function test_post_pos_transaction_with_paid_below_total_returns_422_with_message_and_leaves_stock_unchanged(): void
+    {
+        $initialStock = $this->product->fresh()->stock;
+
+        $response = $this->actingAs($this->cashier)->postJson('/api/pos/transactions', [
+            'items' => [
+                ['product_id' => $this->product->id, 'qty' => 2],
+            ],
+            'payment_method' => 'cash',
+            'paid_amount' => 50000,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'message' => 'Cash payment is not enough.',
+        ]);
+
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame($initialStock, $this->product->fresh()->stock);
+    }
+
+    public function test_post_pos_transaction_with_zero_or_missing_paid_returns_422_and_leaves_stock_unchanged(): void
+    {
+        $initialStock = $this->product->fresh()->stock;
+
+        $response = $this->actingAs($this->cashier)->postJson('/api/pos/transactions', [
+            'items' => [
+                ['product_id' => $this->product->id, 'qty' => 1],
+            ],
+            'payment_method' => 'cash',
+            'paid_amount' => 0,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'message' => 'Cash payment is not enough.',
+        ]);
+
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame($initialStock, $this->product->fresh()->stock);
+    }
+
+    public function test_post_pos_transaction_with_sufficient_cash_succeeds_and_reduces_stock(): void
+    {
+        $initialStock = $this->product->fresh()->stock;
+
+        $response = $this->actingAs($this->cashier)->postJson('/api/pos/transactions', [
+            'items' => [
+                ['product_id' => $this->product->id, 'qty' => 1],
+            ],
+            'payment_method' => 'cash',
+            'paid_amount' => 50000,
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertSame(1, Transaction::count());
+        $this->assertSame($initialStock - 1, $this->product->fresh()->stock);
+    }
 }
