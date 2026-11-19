@@ -65,7 +65,7 @@ $navLinks = [
                     aria-label="Cart">
                     <x-ui.icon name="shopping-cart" class="h-5 w-5" />
                     @if ($cartCount > 0)
-                    <span class="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-moss px-1 text-[11px] font-bold text-white">
+                    <span class="fs-bump absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-moss px-1 text-[11px] font-bold text-white">
                         {{ $cartCount }}
                     </span>
                     @endif
@@ -178,7 +178,7 @@ $navLinks = [
         </div>
 
         <div class="border-t border-white/10 py-5 text-center text-xs text-cream/60">
-            &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
+            <x-copyright />. All rights reserved.
         </div>
     </footer>
 

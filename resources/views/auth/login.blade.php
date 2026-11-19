@@ -16,10 +16,7 @@ $forgot = Route::has('password.request') ? route('password.request') : null;
         <x-member-field name="email" label="Email" type="email" icon="mail" autocomplete="username" required autofocus />
         <x-member-field name="password" label="Password" type="password" icon="lock" autocomplete="current-password" required />
 
-        <div class="flex items-center justify-between text-sm">
-            <label class="flex items-center gap-2">
-                <input type="checkbox" name="remember" class="rounded accent-moss"> Remember me
-            </label>
+        <div class="flex items-center justify-end text-sm">
 
             @if ($forgot)
             <a href="{{ $forgot }}" class="font-medium text-moss hover:text-ink">Forgot password?</a>

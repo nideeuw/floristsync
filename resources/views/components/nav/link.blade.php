@@ -4,7 +4,6 @@
 $state = match (true) {
 $variant === 'dropdown' && $menu->active => 'bg-blush font-semibold text-moss',
 $variant === 'dropdown' => 'text-ink hover:bg-blush',
-$variant === 'topbar' && $menu->active => 'bg-white/15 font-semibold text-white',
 $menu->active => 'bg-moss font-semibold text-white',
 default => 'text-cream/80 hover:bg-white/10',
 };

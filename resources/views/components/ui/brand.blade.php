@@ -1,9 +1,9 @@
-@props(['href', 'name' => null, 'subtitle' => null, 'textClass' => ''])
+@props(['href', 'name' => null, 'subtitle' => null, 'textClass' => '', 'tone' => 'light'])
 
 <a href="{{ $href }}" {{ $attributes->merge(['class' => 'flex items-center gap-3']) }}>
-    <img src="{{ asset('images/logo.png') }}" alt="" class="h-9 w-9 rounded-full bg-cream object-contain p-1">
-    <div class="leading-tight {{ $textClass }}">
-        <div class="text-lg font-bold">{{ $name ?? config('app.name') }}</div>
+    <x-ui.logo size="sm" :tone="$tone" />
+    <div class="min-w-0 leading-tight {{ $textClass }}">
+        <div class="truncate text-lg font-bold">{{ $name ?? config('app.name') }}</div>
         @if ($subtitle)
         <div class="text-xs text-cream/60">{{ $subtitle }}</div>
         @endif

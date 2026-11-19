@@ -4,11 +4,11 @@
         data-low-stock="{{ (int) config('floristsync.low_stock_threshold') }}"
         data-login-url="{{ route('cashier.login') }}"
         x-on:keydown.window.f2.prevent="$refs.search.focus()"
-        class="flex h-[calc(100vh-3.5rem)]">
+        class="flex h-full gap-3">
 
         {{-- ================= Left: products ================= --}}
-        <section class="flex min-w-0 flex-1 flex-col">
-            <div class="space-y-3 border-b border-blush bg-white p-4">
+        <section class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-blush/40">
+            <div class="space-y-3 border-b border-blush/60 bg-white p-4">
                 <div class="flex gap-3">
                     <input x-ref="search" x-model="search" type="text" placeholder="Search product (F2)" class="input"
                         x-on:keydown.enter="if (filtered.length === 1) { add(filtered[0]); search = ''; }">
@@ -63,11 +63,11 @@
         </section>
 
         {{-- ================= Right: cart and payment ================= --}}
-        <aside class="flex w-full max-w-sm shrink-0 flex-col border-l border-blush bg-white sm:w-96">
-            <div class="flex items-center justify-between border-b border-blush px-4 py-3">
+        <aside class="flex w-full max-w-sm shrink-0 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-blush/40 sm:w-96">
+            <div class="flex items-center justify-between border-b border-blush/60 px-4 py-3">
                 <div>
                     <div class="font-bold">Current Order</div>
-                    <div class="text-xs text-gray-500" x-text="itemCount + ' item(s)'"></div>
+                    <div class="inline-block text-xs text-gray-500" x-text="itemCount + ' item(s)'" x-effect="itemCount; $el.classList.remove('fs-bump'); void $el.offsetWidth; $el.classList.add('fs-bump')"></div>
                 </div>
                 <button type="button" x-on:click="clear()" x-show="cart.length" x-cloak
                     class="text-sm text-red-600 hover:underline">Clear</button>
@@ -80,7 +80,7 @@
                 </div>
 
                 <template x-for="item in cart" :key="item.product_id">
-                    <div class="rounded-xl border border-blush p-3">
+                    <div class="fs-row-in rounded-xl border border-blush p-3">
                         <div class="flex items-start justify-between gap-2">
                             <div class="text-sm font-semibold leading-snug" x-text="item.product_name"></div>
                             <button type="button" x-on:click="remove(item)" class="text-gray-400 hover:text-red-600" aria-label="Remove">✕</button>
@@ -176,7 +176,7 @@
 
                 <div class="flex items-center justify-between text-lg font-extrabold">
                     <span>Total</span>
-                    <span x-text="rupiah(total)"></span>
+                    <span class="inline-block" x-text="rupiah(total)" x-effect="total; $el.classList.remove('fs-bump'); void $el.offsetWidth; $el.classList.add('fs-bump')"></span>
                 </div>
 
                 {{-- Payment method --}}
@@ -261,8 +261,8 @@
         {{-- ================= Success modal ================= --}}
         <div x-show="success" x-cloak x-transition.opacity
             class="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
-            <div class="card w-full max-w-sm p-6 text-center">
-                <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-moss text-2xl text-white">✓</div>
+            <div class="card fs-pop-card w-full max-w-sm p-6 text-center">
+                <div class="fs-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-moss text-2xl text-white">✓</div>
                 <h2 class="mt-3 text-xl font-bold">Payment successful</h2>
                 <p class="text-sm text-gray-500" x-text="success ? 'Order #' + success.id : ''"></p>
 

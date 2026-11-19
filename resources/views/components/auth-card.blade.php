@@ -15,8 +15,7 @@
     <div class="w-full max-w-sm">
         <div class="mb-6 text-center {{ $dark ? 'text-cream' : 'text-ink' }}">
             <a @if ($home) href="{{ $home }}" @endif class="inline-block">
-                <img src="{{ asset('images/logo.png') }}" alt=""
-                    class="mx-auto h-16 w-16 rounded-full bg-cream object-contain p-2">
+                <x-ui.logo size="xl" :tone="$dark ? 'dark' : 'light'" class="mx-auto" />
             </a>
             <h1 class="mt-3 text-2xl font-bold">{{ $title }}</h1>
             @if ($subtitle)
