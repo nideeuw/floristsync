@@ -46,7 +46,7 @@ class PosCancellationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->product = Product::create([
+        $this->product = Product::factory()->create([
             'category_id' => $category->id,
             'product_name' => 'Red Rose',
             'price' => 50000,
@@ -278,7 +278,7 @@ class PosCancellationTest extends TestCase
         ]);
 
         if ($status === Transaction::COMPLETED) {
-            $this->product->decrement('stock', $qty);
+            $this->product->stocks()->create(['quantity_change' => -$qty, 'change_type' => 'out', 'notes' => 'Test sale', 'date' => now()]);
         }
 
         return $tx;
