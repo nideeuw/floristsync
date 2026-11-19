@@ -88,7 +88,7 @@ class PasswordResetTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertSessionHas('status', __('passwords.sent'));
+        $response->assertSessionHas('status', 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.');
         Notification::assertNothingSent();
     }
 

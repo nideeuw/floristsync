@@ -43,7 +43,7 @@ class PosQrisTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->product = Product::create([
+        $this->product = Product::factory()->create([
             'category_id' => $category->id,
             'product_name' => 'Sunflower',
             'price' => 35000,
