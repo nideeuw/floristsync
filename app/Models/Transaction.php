@@ -48,6 +48,24 @@ class Transaction extends Model
         'cancel_requested_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // The number is built from the id, so it is set right after the insert.
+        static::created(function (self $transaction) {
+            if (! empty($transaction->getAttributes()['order_number'] ?? null)) {
+                return;
+            }
+
+            $padded = str_pad((string) $transaction->id, 6, '0', STR_PAD_LEFT);
+
+            $transaction->forceFill([
+                'order_number' => $transaction->transaction_type === self::TYPE_POS
+                    ? 'POS-'.$padded
+                    : 'FS-'.($transaction->created_on ?? now())->format('Ymd').'-'.$padded,
+            ])->saveQuietly();
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -124,10 +142,11 @@ class Transaction extends Model
         );
     }
 
-    public function getOrderNumberAttribute(): string
+    public function getOrderNumberAttribute(?string $value = null): string
     {
-        return $this->payment?->midtrans_order_id
-            ?? 'POS-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+        return $value
+            ?: ($this->payment?->midtrans_order_id
+                ?? 'POS-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT));
     }
 
     public function scopeSuccessful(Builder $query): Builder
@@ -141,6 +160,19 @@ class Transaction extends Model
             return $this->where('id', $value)->first();
         }
 
-        return $this->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $value))->first();
+        return $this->whereOrderNumber((string) $value)->first();
+    }
+
+    /**
+     * Finds an order by its number. Old links keep working: the Midtrans id an order had before
+     * order numbers existed (or in an older payment attempt) is accepted too.
+     */
+    public function scopeWhereOrderNumber(Builder $query, string $value): Builder
+    {
+        return $query->where(function (Builder $q) use ($value) {
+            $q->where('order_number', $value)
+                ->orWhereHas('payments', fn ($p) => $p->where('midtrans_order_id', $value))
+                ->orWhereHas('payments.attempts', fn ($a) => $a->where('midtrans_order_id', $value));
+        });
     }
 }

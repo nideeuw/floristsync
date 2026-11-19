@@ -60,7 +60,9 @@ class TransactionHistoryService
         $escaped = escape_like($term);
 
         return $query->where(function (Builder $q) use ($term, $escaped) {
-            $q->whereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'ilike', '%'.$escaped.'%'));
+            $q->where('order_number', 'ilike', '%'.$escaped.'%')
+                ->orWhereHas('payments', fn (Builder $p) => $p->where('midtrans_order_id', 'ilike', '%'.$escaped.'%'))
+                ->orWhereHas('payments.attempts', fn (Builder $a) => $a->where('midtrans_order_id', 'ilike', '%'.$escaped.'%'));
 
             if (preg_match('/^(?:POS-)?0*(\d+)$/i', $term, $match)) {
                 $q->orWhere(function (Builder $pos) use ($match) {

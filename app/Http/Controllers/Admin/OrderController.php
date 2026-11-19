@@ -35,7 +35,9 @@ class OrderController extends Controller
                 $term = escape_like($v);
 
                 $q->where(function ($w) use ($v, $term) {
-                    $w->whereHas('payments', fn ($p) => $p->where('midtrans_order_id', 'ilike', "%{$term}%"));
+                    $w->where('order_number', 'ilike', "%{$term}%")
+                        ->orWhereHas('payments', fn ($p) => $p->where('midtrans_order_id', 'ilike', "%{$term}%"))
+                        ->orWhereHas('payments.attempts', fn ($a) => $a->where('midtrans_order_id', 'ilike', "%{$term}%"));
 
                     $trimmed = trim($v);
                     if (ctype_digit($trimmed)) {

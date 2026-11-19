@@ -30,7 +30,7 @@ class TrackController extends Controller
 
         if ($orderNumber !== '') {
             $selected = (clone $own)
-                ->whereHas('payments', fn ($q) => $q->where('midtrans_order_id', $orderNumber))
+                ->whereOrderNumber($orderNumber)
                 ->first();
         }
 

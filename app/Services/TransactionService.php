@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use App\Models\PaymentAttempt;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\Transaction;
@@ -107,11 +108,16 @@ class TransactionService
 
             $this->saveDetailsAndReduceStock($transaction, $rows);
 
-            Payment::create([
+            $payment = Payment::create([
                 'transaction_id' => $transaction->id,
                 'midtrans_order_id' => 'FS-'.$transaction->id.'-'.strtoupper(Str::random(6)),
                 'payment_status' => 'pending',
                 'amount' => $transaction->total,
+            ]);
+
+            $payment->attempts()->create([
+                'midtrans_order_id' => $payment->midtrans_order_id,
+                'status' => 'pending',
             ]);
 
             return $transaction->load('details.product', 'payment');
@@ -180,9 +186,15 @@ class TransactionService
         DB::transaction(function () use ($notification, $status) {
             $orderId = $notification['order_id'] ?? null;
 
-            $payment = $orderId
-                ? Payment::where('midtrans_order_id', $orderId)->lockForUpdate()->first()
+            // Every Midtrans order id of an order is kept as a payment attempt, so a late notification for an
+            // older attempt still finds its order. POS sales and old rows fall back to payments.midtrans_order_id.
+            $attempt = $orderId
+                ? PaymentAttempt::where('midtrans_order_id', $orderId)->lockForUpdate()->first()
                 : null;
+
+            $payment = $attempt
+                ? Payment::whereKey($attempt->payment_id)->lockForUpdate()->first()
+                : ($orderId ? Payment::where('midtrans_order_id', $orderId)->lockForUpdate()->first() : null);
 
             if (! $payment) {
                 Log::warning('Midtrans notification for an unknown order.', ['order_id' => $orderId]);
@@ -196,9 +208,59 @@ class TransactionService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            if ($attempt !== null && $payment->midtrans_order_id !== $orderId) {
+                // An older attempt: the member switched payment method after it was created.
+                $attempt->update([
+                    'status' => $status,
+                    'method' => $notification['payment_type'] ?? $attempt->method,
+                ]);
+
+                if (! $this->isPaid($notification)) {
+                    // An older invoice that expired or was cancelled changes nothing about the order.
+                    return;
+                }
+
+                if ($payment->payment_date !== null) {
+                    // The order is already paid through another attempt, so this one is a double payment.
+                    Log::error("Order #{$transaction->id} was paid twice. Payment {$orderId} needs a refund.");
+
+                    try {
+                        $this->notifyLatePayment(
+                            $transaction,
+                            'Duplicate payment needs a refund',
+                            "Order #{$transaction->id} was paid twice. The payment {$orderId} must be refunded in the Midtrans dashboard."
+                        );
+                    } catch (Throwable $e) {
+                        Log::error("Duplicate payment notification for order #{$transaction->id} failed: {$e->getMessage()}");
+                    }
+
+                    return;
+                }
+
+                // Not paid yet: the money is on this older attempt, so the order follows it.
+                $previousOrderId = $payment->midtrans_order_id;
+
+                PaymentAttempt::where('midtrans_order_id', $previousOrderId)->first()?->update(['status' => 'cancel']);
+
+                $payment->update([
+                    'midtrans_order_id' => $orderId,
+                    'payment_method' => $notification['payment_type'] ?? $payment->payment_method,
+                ]);
+
+                if ($transaction->status === Transaction::PENDING_PAYMENT && $previousOrderId) {
+                    // Close the newer invoice, so the member cannot pay the same order twice.
+                    $this->midtrans->cancelInvoice($previousOrderId);
+                }
+            }
+
             if ($payment->payment_date !== null && ! in_array($status, self::AFTER_PAYMENT_STATUSES, true) && ! ($status === 'settlement' && $payment->payment_status === 'capture')) {
                 return;
             }
+
+            $attempt?->update([
+                'status' => $status,
+                'method' => $notification['payment_type'] ?? $attempt->method,
+            ]);
 
             $payment->update([
                 'payment_status' => $status,
