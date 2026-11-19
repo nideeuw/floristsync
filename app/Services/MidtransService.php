@@ -191,19 +191,45 @@ class MidtransService
     {
         $payload = json_decode(request()->getContent(), true);
 
-        if (! is_array($payload) || ! $this->hasValidSignature($payload)) {
+        if (! is_array($payload)) {
+            throw new \InvalidArgumentException('Midtrans notification body is not valid JSON.');
+        }
+
+        $this->requireFields($payload, ['order_id', 'status_code', 'gross_amount', 'transaction_status', 'signature_key']);
+
+        if (! $this->hasValidSignature($payload)) {
             throw new DomainException('Invalid Midtrans notification signature.');
         }
 
+        // The SDK asks Midtrans for the status with transaction_id, which the signature does not cover.
+        $this->requireFields($payload, ['transaction_id']);
+
+        // Throws when Midtrans or the network fails: the controller answers 503 so Midtrans sends it again.
         $raw = (array) (new Notification)->getResponse();
 
+        if ((string) ($raw['order_id'] ?? '') !== (string) $payload['order_id']) {
+            throw new DomainException('Midtrans response does not match the notification.');
+        }
+
         return [
-            'order_id' => $raw['order_id'],
-            'transaction_status' => $raw['transaction_status'],
+            'order_id' => (string) $raw['order_id'],
+            'transaction_status' => $raw['transaction_status'] ?? null,
             'fraud_status' => $raw['fraud_status'] ?? null,
             'payment_type' => $raw['payment_type'] ?? null,
+            // Amount in the Midtrans response.
             'gross_amount' => $raw['gross_amount'] ?? null,
+            // Amount in the signed notification body.
+            'notified_gross_amount' => $payload['gross_amount'],
         ];
+    }
+
+    private function requireFields(array $payload, array $fields): void
+    {
+        foreach ($fields as $field) {
+            if (! isset($payload[$field]) || ! is_scalar($payload[$field]) || trim((string) $payload[$field]) === '') {
+                throw new \InvalidArgumentException("Midtrans notification is missing {$field}.");
+            }
+        }
     }
 
     public function cancelInvoice(string $orderId): void
