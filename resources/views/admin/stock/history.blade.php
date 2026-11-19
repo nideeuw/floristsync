@@ -34,6 +34,7 @@
             <th>Product</th>
             <th>Change</th>
             <th>Type</th>
+            <th>Reason</th>
             <th>Notes</th>
             <th>By</th>
         </x-slot:head>
@@ -56,12 +57,13 @@
                         default => 'bg-gray-200 text-gray-600',
                     } }}">{{ ucfirst($stock->change_type) }}</span>
                 </td>
+                <td class="whitespace-nowrap">{{ $stock->reason ? (\App\Models\Stock::REASONS[$stock->reason] ?? ucfirst(str_replace('_', ' ', $stock->reason))) : '-' }}</td>
                 <td class="max-w-xs truncate">{{ $stock->notes }}</td>
                 <td class="whitespace-nowrap">{{ $stock->creator?->name ?? '-' }}</td>
             </tr>
             @empty
             <tr>
-                <td colspan="6" class="!py-8 text-center text-gray-500">No stock movements found.</td>
+                <td colspan="7" class="!py-8 text-center text-gray-500">No stock movements found.</td>
             </tr>
             @endforelse
         </x-slot:body>

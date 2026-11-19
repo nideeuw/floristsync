@@ -60,7 +60,7 @@
             @endunless
 
             @unless ($isStock)
-            @if ($tab !== 'stock')
+            @if (! in_array($tab, ['stock', 'waste'], true))
             <div>
                 <label class="mb-1 block text-xs text-gray-500">Type</label>
                 <select name="type" class="input">
@@ -72,7 +72,7 @@
             @endif
             @endunless
 
-            @if (in_array($tab, ['products', 'stock'], true))
+            @if (in_array($tab, ['products', 'stock', 'waste'], true))
             <div>
                 <label class="mb-1 block text-xs text-gray-500">Category</label>
                 <select name="category" class="input">

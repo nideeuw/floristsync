@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\Stock;
 use App\Services\InventoryService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -28,13 +29,18 @@ class StockAdjustmentController extends Controller
         $data = $request->validate([
             'product_id' => ['required', Rule::exists('products', 'id')->where('is_active', true)],
             'change' => ['required', 'integer', 'between:-100000,100000', 'not_in:0'],
+            'reason' => [
+                Rule::requiredIf(fn () => (int) $request->input('change') < 0),
+                'nullable',
+                Rule::in(array_keys(Stock::REASONS)),
+            ],
             'notes' => ['required', 'string', 'max:200'],
         ]);
 
         $product = Product::findOrFail($data['product_id']);
 
         try {
-            $this->inventory->adjust($product, (int) $data['change'], $data['notes']);
+            $this->inventory->adjust($product, (int) $data['change'], $data['notes'], $data['reason'] ?? null);
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }

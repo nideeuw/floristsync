@@ -15,6 +15,7 @@ class ReportService
         'sales' => 'Sales',
         'products' => 'Products',
         'stock' => 'Stock',
+        'waste' => 'Waste',
         'cancellations' => 'Cancellations',
         'shifts' => 'Shifts',
     ];
@@ -165,6 +166,13 @@ class ReportService
                 ['key' => 'stock', 'label' => 'Stock', 'type' => 'int'],
                 ['key' => 'stock_status', 'label' => 'Status', 'type' => 'text'],
             ],
+            'waste' => [
+                ['key' => 'month', 'label' => 'Month', 'type' => 'month'],
+                ['key' => 'product_name', 'label' => 'Product', 'type' => 'text'],
+                ['key' => 'category_name', 'label' => 'Category', 'type' => 'text'],
+                ['key' => 'quantity_lost', 'label' => 'Units Lost', 'type' => 'int'],
+                ['key' => 'value_lost', 'label' => 'Value Lost', 'type' => 'money'],
+            ],
             'cancellations' => [
                 ['key' => 'order_number', 'label' => 'Order', 'type' => 'text'],
                 ['key' => 'transaction_type', 'label' => 'Type', 'type' => 'channel'],
@@ -204,6 +212,7 @@ class ReportService
             'money' => rupiah((int) $value),
             'difference' => $value === null ? '-' : ((int) $value === 0 ? 'Exact' : ((int) $value < 0 ? 'Short by '.rupiah(abs((int) $value)) : 'Over by '.rupiah((int) $value))),
             'int' => number_format((int) $value, 0, ',', '.'),
+            'month' => Carbon::parse($value)->format('M Y'),
             'date' => Carbon::parse($value)->format('d M Y'),
             'datetime' => Carbon::parse($value)->format('d M Y, H:i'),
             'channel' => $value === Transaction::TYPE_POS ? 'POS' : 'Online',
@@ -216,6 +225,7 @@ class ReportService
         return match ($tab) {
             'products' => $this->productsQuery($f),
             'stock' => $this->stockQuery($f),
+            'waste' => $this->wasteQuery($f),
             'cancellations' => $this->cancellationsQuery($f),
             'shifts' => $this->shiftsQuery($f),
             default => $this->salesQuery($f),
@@ -257,6 +267,16 @@ class ReportService
                 ['label' => 'Products', 'value' => $count($a->n), 'hint' => null],
                 ['label' => 'Low stock', 'value' => $count($a->low), 'hint' => 'At or below '.(int) config('floristsync.low_stock_threshold')],
                 ['label' => 'Out of stock', 'value' => $count($a->out_of_stock), 'hint' => null],
+            ];
+        }
+
+        if ($tab === 'waste') {
+            $a = $this->aggregate($query, 'COUNT(*) as n, COALESCE(SUM(quantity_lost), 0) as qty, COALESCE(SUM(value_lost), 0) as val');
+
+            return [
+                ['label' => 'Products with waste', 'value' => $count($a->n), 'hint' => null],
+                ['label' => 'Units lost', 'value' => $count($a->qty), 'hint' => 'Wilted and damaged'],
+                ['label' => 'Total value lost', 'value' => rupiah((int) $a->val), 'hint' => null],
             ];
         }
 
@@ -329,6 +349,26 @@ class ReportService
             ->when(! empty($f['low']), fn ($q) => $q->where('stock', '<=', $threshold))
             ->selectRaw("product_id as id, product_name, category_name, stock, CASE WHEN stock <= 0 THEN 'Out of stock' WHEN stock <= {$threshold} THEN 'Low stock' ELSE 'In stock' END as stock_status")
             ->orderBy('stock')
+            ->orderBy('product_name');
+    }
+
+    public function waste(Carbon $from, Carbon $to, ?int $categoryId = null): Collection
+    {
+        return $this->wasteQuery(['from' => $from, 'to' => $to, 'category' => $categoryId])->get();
+    }
+
+    /** Source: view_stock_waste */
+    public function wasteQuery(array $f): QueryBuilder
+    {
+        $fromMonth = isset($f['from']) ? $f['from']->format('Y-m-01') : null;
+        $toMonth = isset($f['to']) ? $f['to']->endOfMonth()->format('Y-m-d') : null;
+
+        return DB::table('view_stock_waste')
+            ->when($fromMonth && $toMonth, fn ($q) => $q->whereBetween('month', [$fromMonth, $toMonth]))
+            ->when($f['category'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
+            ->select('month', 'product_id as id', 'product_name', 'category_name', 'quantity_lost', 'value_lost')
+            ->orderByDesc('month')
+            ->orderByDesc('value_lost')
             ->orderBy('product_name');
     }
 

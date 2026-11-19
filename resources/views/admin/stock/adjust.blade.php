@@ -25,7 +25,20 @@
             <x-ui.field name="change" label="Change" type="number" :value="1"
                 hint="Positive adds stock, negative removes stock. Cannot be zero." />
 
-            <x-ui.textarea name="notes" label="Reason" maxlength="200" />
+            <div>
+                <label class="mb-1 block text-sm font-medium">Reason <span class="text-xs text-gray-500">(Required when reducing stock)</span></label>
+                <select name="reason" class="input">
+                    <option value="">Select reason (required for negative change)</option>
+                    @foreach (\App\Models\Stock::REASONS as $key => $label)
+                    <option value="{{ $key }}" @selected(old('reason') === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                @error('reason')
+                <p class="mt-1 text-xs text-red-700">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <x-ui.textarea name="notes" label="Notes" maxlength="200" />
         </div>
 
         <div class="mt-6 flex gap-2">

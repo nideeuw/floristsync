@@ -132,11 +132,11 @@ class ReportController extends Controller
     {
         $notes = [];
 
-        if ($f['type'] && $f['tab'] !== 'stock') {
+        if ($f['type'] && ! in_array($f['tab'], ['stock', 'waste'], true)) {
             $notes[] = 'Type: '.($f['type'] === Transaction::TYPE_POS ? 'POS' : 'Online');
         }
 
-        if ($f['category'] && in_array($f['tab'], ['products', 'stock'], true)) {
+        if ($f['category'] && in_array($f['tab'], ['products', 'stock', 'waste'], true)) {
             $notes[] = 'Category: '.(Category::find($f['category'])?->category_name ?? '-');
         }
 

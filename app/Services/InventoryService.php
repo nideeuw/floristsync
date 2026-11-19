@@ -38,7 +38,7 @@ class InventoryService
         $this->log($product->id, $qty, $changeType, $notes);
     }
 
-    public function adjust(Product $product, int $change, string $notes): void
+    public function adjust(Product $product, int $change, string $notes, ?string $reason = null): void
     {
         if ($change === 0) {
             throw new DomainException('Quantity change cannot be zero.');
@@ -50,14 +50,18 @@ class InventoryService
             return;
         }
 
-        DB::transaction(function () use ($product, $change, $notes) {
+        DB::transaction(function () use ($product, $change, $notes, $reason) {
             $this->lockProduct($product->id);
 
             if ($this->currentStock($product->id) < abs($change)) {
                 throw new DomainException("Stock of {$product->product_name} cannot go below zero.");
             }
 
-            $this->log($product->id, $change, 'adjustment', $notes);
+            if (empty($reason)) {
+                throw new DomainException('A reason is required for negative stock adjustments.');
+            }
+
+            $this->log($product->id, $change, 'adjustment', $notes, $reason);
         });
 
         $this->notifyIfLow($product);
@@ -87,12 +91,13 @@ class InventoryService
         }
     }
 
-    private function log(int $productId, int $change, string $changeType, string $notes): void
+    private function log(int $productId, int $change, string $changeType, string $notes, ?string $reason = null): void
     {
         Stock::create([
             'product_id' => $productId,
             'quantity_change' => $change,
             'change_type' => $changeType,
+            'reason' => $reason,
             'notes' => $notes,
             'date' => now(),
         ]);
