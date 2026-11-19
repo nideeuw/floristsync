@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             ThrottleLoginRequests::class,
             EnsureUserIsActive::class,
+            \App\Http\Middleware\PreventBackHistory::class,
         ]);
 
         $middleware->redirectGuestsTo(fn (Request $request) => match (true) {

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\PreventBackHistory;
 use App\Mail\Transport\GmailScriptTransport;
 use App\View\Composers\MenuComposer;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -25,12 +26,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->app['router']->aliasMiddleware('prevent-back', PreventBackHistory::class);
+        $this->app['router']->aliasMiddleware('no-cache', PreventBackHistory::class);
+
+        $this->app['router']->aliasMiddleware('prevent-back', \App\Http\Middleware\PreventBackHistory::class);
+        $this->app['router']->aliasMiddleware('no-cache', \App\Http\Middleware\PreventBackHistory::class);
+
         Mail::extend('gmailscript', function (array $config) {
             return new GmailScriptTransport((string) $config['script_url'], (string) $config['secret']);
         });
 
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
-            return rtrim((string) config('app.url'), '/') . route('password.reset', [
+            return rtrim((string) config('app.url'), '/').route('password.reset', [
                 'token' => $token,
                 'email' => $notifiable->getEmailForPasswordReset(),
             ], false);

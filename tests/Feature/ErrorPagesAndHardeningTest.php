@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Role;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\ShippingService;
 use Database\Seeders\RolesMenusSeeder;
@@ -397,5 +398,131 @@ class ErrorPagesAndHardeningTest extends TestCase
         $costResponse->assertStatus(502);
         $costResponse->assertJson(['message' => 'Shipping service is unavailable.']);
         $this->assertStringContainsString('application/json', (string) $costResponse->headers->get('Content-Type'));
+    }
+
+    public function test_logged_in_track_admin_and_pos_carry_no_cache_headers(): void
+    {
+        $member = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::OWNER)->value('id'),
+            'is_active' => true,
+        ]);
+        $cashier = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::CASHIER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        // Member on /track
+        $responseMember = $this->actingAs($member)->get('/track');
+        $responseMember->assertStatus(200);
+        $this->assertNoCacheHeaders($responseMember);
+
+        // Admin on /admin
+        $responseAdmin = $this->actingAs($admin)->get('/admin');
+        $this->assertNoCacheHeaders($responseAdmin);
+
+        // Cashier on /pos
+        $responseCashier = $this->actingAs($cashier)->get('/pos');
+        $responseCashier->assertStatus(200);
+        $this->assertNoCacheHeaders($responseCashier);
+    }
+
+    public function test_guest_home_page_does_not_carry_no_cache_headers(): void
+    {
+        $response = $this->get('/');
+        $response->assertStatus(200);
+
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringNotContainsString('no-store', $cacheControl);
+        $this->assertNotEquals('no-cache', $response->headers->get('Pragma'));
+    }
+
+    public function test_after_logout_get_track_redirects_to_login(): void
+    {
+        $member = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($member);
+
+        // Member logs out
+        $logoutResponse = $this->post('/logout');
+        $logoutResponse->assertRedirect(route('login'));
+        $this->assertGuest();
+
+        // Browser Back button to /track requires re-authentication and sends to /login
+        $backResponse = $this->get('/track');
+        $backResponse->assertRedirect(route('login'));
+    }
+
+    public function test_after_admin_and_cashier_logout_back_redirects_to_correct_login_doors(): void
+    {
+        $admin = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::OWNER)->value('id'),
+            'is_active' => true,
+        ]);
+        $this->actingAs($admin)->post('/admin/logout');
+        $this->assertGuest();
+
+        // Admin Back to /admin redirects to admin.login
+        $this->get('/admin')->assertRedirect(route('admin.login'));
+
+        $cashier = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::CASHIER)->value('id'),
+            'is_active' => true,
+        ]);
+        $this->actingAs($cashier)->post('/pos/logout');
+        $this->assertGuest();
+
+        // Cashier Back to /pos redirects to cashier.login
+        $this->get('/pos')->assertRedirect(route('cashier.login'));
+    }
+
+    public function test_three_login_pages_carry_no_cache_headers_for_guests(): void
+    {
+        foreach (['/login', '/admin/login', '/pos/login'] as $door) {
+            $response = $this->get($door);
+            $response->assertStatus(200);
+            $this->assertNoCacheHeaders($response);
+        }
+    }
+
+    public function test_guest_catalog_and_printable_responses_do_not_carry_no_cache_headers(): void
+    {
+        // Guest pages
+        $catResponse = $this->get('/catalog');
+        $catResponse->assertStatus(200);
+        $this->assertStringNotContainsString('no-store', (string) $catResponse->headers->get('Cache-Control'));
+
+        // Printable invoice for logged-in user
+        $member = User::factory()->create([
+            'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
+            'is_active' => true,
+        ]);
+        $tx = Transaction::create([
+            'user_id' => $member->id,
+            'transaction_type' => Transaction::TYPE_ONLINE,
+            'total' => 150000,
+            'status' => Transaction::PROCESSING,
+        ]);
+
+        $invoiceResponse = $this->actingAs($member)->get("/track/{$tx->id}/invoice");
+        $invoiceResponse->assertStatus(200);
+        $this->assertStringNotContainsString('no-store', (string) $invoiceResponse->headers->get('Cache-Control'));
+    }
+
+    private function assertNoCacheHeaders($response): void
+    {
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+        $this->assertStringContainsString('max-age=0', $cacheControl);
+        $this->assertEquals('no-cache', $response->headers->get('Pragma'));
+        $this->assertEquals('0', $response->headers->get('Expires'));
     }
 }
