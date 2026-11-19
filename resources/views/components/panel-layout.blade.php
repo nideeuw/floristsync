@@ -194,7 +194,7 @@
                     {{ $slot }}
                 </main>
             @else
-                <main class="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+                <main class="fs-page min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
                     <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
                         <div class="min-w-0">
                             <nav aria-label="Breadcrumb" class="mb-1 flex flex-wrap items-center gap-1 text-xs text-ink/60">
