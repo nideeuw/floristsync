@@ -285,7 +285,7 @@ class CartPersistenceTest extends TestCase
             'fulfillment' => 'pickup',
         ]);
 
-        $response->assertOk();
+        $response->assertStatus(303);
 
         // Database cart must be cleared
         $this->assertDatabaseMissing('cart_items', [
