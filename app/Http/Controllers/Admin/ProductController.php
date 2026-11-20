@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\AuditService;
 use App\Services\InventoryService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -15,7 +16,7 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(private InventoryService $inventory, private AuditService $audit) {}
 
     public function index(Request $request): View
     {
@@ -92,7 +93,11 @@ class ProductController extends Controller
             $attributes['image'] = $request->file('image')->store('products', 'public');
         }
 
+        $before = $product->only(['price', 'is_active']);
+
         $product->update($attributes);
+
+        $this->audit->logChanges('product.updated', 'product', $product->id, $before, $product->only(['price', 'is_active']));
 
         return redirect()->route('admin.products.index')->with('success', 'Product updated.');
     }
@@ -110,12 +115,18 @@ class ProductController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
+        $this->audit->log('stock.adjusted', 'product', $product->id, null, ['change' => (int) $data['change'], 'notes' => $data['notes'] ?: 'Manual adjustment']);
+
         return back()->with('success', 'Stock updated.');
     }
 
     public function toggleActive(Product $product): RedirectResponse
     {
+        $before = $product->only(['is_active']);
+
         $product->update(['is_active' => ! $product->is_active]);
+
+        $this->audit->logChanges('product.updated', 'product', $product->id, $before, $product->only(['is_active']));
 
         return back()->with('success', $product->is_active ? 'Product activated.' : 'Product deactivated.');
     }

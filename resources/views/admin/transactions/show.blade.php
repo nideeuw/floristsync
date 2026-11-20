@@ -138,6 +138,8 @@ $isDelivery = $transaction->isDelivery();
                 <div class="flex justify-between"><span>Date</span><span>{{ \Carbon\Carbon::parse($transaction->created_on)->format('d M Y, H:i') }}</span></div>
             </div>
 
+            <x-status-timeline :transaction="$transaction" />
+
             <div class="card space-y-3 p-5 text-sm">
                 <div class="font-semibold">Member</div>
                 @if ($transaction->user)

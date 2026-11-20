@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LoginController as AdminLoginController;
@@ -176,6 +177,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::resource('staff', StaffController::class)->except('show')
             ->middleware('menu.perm:admin.staff.index');
+
+        Route::get('audit-logs', [AuditLogController::class, 'index'])
+            ->middleware('menu.perm:admin.audit-logs')->name('audit-logs');
 
         Route::middleware('menu.perm:admin.settings')->group(function () {
             Route::get('settings', [SettingController::class, 'index'])->name('settings');

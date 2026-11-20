@@ -76,6 +76,7 @@ class RolesMenusSeeder extends Seeder
         $m['transactions'] = $this->menu('Transaction History', 'ADMIN_PANEL', 2, $m['owner_group'], 'receipt', 'admin.transactions');
         $m['staff']        = $this->menu('Staff Accounts', 'ADMIN_PANEL', 3, $m['owner_group'], 'users', 'admin.staff.index');
         $m['settings']     = $this->menu('Store Settings', 'ADMIN_PANEL', 4, $m['owner_group'], 'settings', 'admin.settings');
+        $m['audit_logs']   = $this->menu('Audit Log', 'ADMIN_PANEL', 5, $m['owner_group'], 'history', 'admin.audit-logs');
 
         // POS
         $m['pos_group']   = $this->menu('POS', 'POS', 10, null, 'monitor', null, 'group');
@@ -122,6 +123,7 @@ class RolesMenusSeeder extends Seeder
             'transactions'    => [Role::OWNER => $view],
             'staff'           => [Role::OWNER => $crud],
             'settings'        => [Role::OWNER => $edit],
+            'audit_logs'      => [Role::OWNER => $view],
 
             'pos_sale'          => [Role::CASHIER => $add],
             'pos_history'       => [Role::CASHIER => $view],

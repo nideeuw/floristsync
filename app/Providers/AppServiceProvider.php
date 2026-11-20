@@ -5,14 +5,19 @@ namespace App\Providers;
 use App\Http\Middleware\PreventBackHistory;
 use App\Mail\Transport\GmailScriptTransport;
 use App\Models\Role;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Observers\TransactionObserver;
+use App\Services\AuditService;
 use App\View\Composers\MenuComposer;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -101,6 +106,15 @@ class AppServiceProvider extends ServiceProvider
             $this->timestamp('created_on')->nullable();
             $this->foreignId('modified_by')->nullable()->constrained('users')->nullOnDelete();
             $this->timestamp('modified_on')->nullable();
+        });
+
+        // Audit trail: order status changes and staff logins (see AuditService).
+        Transaction::observe(TransactionObserver::class);
+
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->user instanceof User && ! $event->user->hasRole(Role::MEMBER)) {
+                app(AuditService::class)->log('auth.login', 'user', $event->user->id, userId: $event->user->id);
+            }
         });
 
         View::composer([

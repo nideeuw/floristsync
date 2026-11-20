@@ -98,6 +98,8 @@ class PosCancellationService
             ]);
         });
 
+        app(AuditService::class)->log('pos.cancelled', 'transaction', $transaction->id, null, ['reason' => $reason, 'refund_method' => $refundMethod], userId: $cashier->id);
+
         return $transaction->refresh();
     }
 }

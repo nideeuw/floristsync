@@ -16,6 +16,8 @@ class StaffService
 {
     public const ROLES = [Role::CASHIER, Role::ADMIN_ORDER, Role::ADMIN_INVENTORY];
 
+    private const AUDITED = ['role_id', 'name', 'email', 'phone', 'is_active'];
+
     public function roles(): Collection
     {
         return Role::query()
@@ -56,6 +58,8 @@ class StaffService
         $staff->is_active = true;
         $staff->save();
 
+        app(AuditService::class)->log('staff.created', 'user', $staff->id, null, $staff->only(self::AUDITED));
+
         return $staff;
     }
 
@@ -66,6 +70,8 @@ class StaffService
         }
 
         $this->assertStaffRole((int) $data['role_id']);
+
+        $before = $staff->only(self::AUDITED);
 
         $staff->fill(Arr::only($data, ['role_id', 'name', 'email', 'phone']));
 
@@ -78,6 +84,14 @@ class StaffService
         }
 
         $staff->save();
+
+        app(AuditService::class)->logChanges(
+            'staff.updated',
+            'user',
+            $staff->id,
+            $before,
+            $staff->only(self::AUDITED) + (empty($data['password']) ? [] : ['credentials_changed' => true]),
+        );
 
         if (! $staff->is_active || ! empty($data['password'])) {
             $this->endSessions($staff);
@@ -94,6 +108,8 @@ class StaffService
 
         $staff->is_active = false;
         $staff->save();
+
+        app(AuditService::class)->log('staff.deactivated', 'user', $staff->id, ['is_active' => true], ['is_active' => false]);
 
         $this->endSessions($staff);
     }
