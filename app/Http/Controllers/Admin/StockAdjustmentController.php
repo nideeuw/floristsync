@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Services\AuditService;
 use App\Services\InventoryService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -14,7 +15,7 @@ use Illuminate\View\View;
 
 class StockAdjustmentController extends Controller
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(private InventoryService $inventory, private AuditService $audit) {}
 
     public function index(Request $request): View
     {
@@ -44,6 +45,8 @@ class StockAdjustmentController extends Controller
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }
+
+        $this->audit->log('stock.adjusted', 'product', $product->id, null, ['change' => (int) $data['change'], 'reason' => $data['reason'] ?? null, 'notes' => $data['notes']]);
 
         return back()->with('success', "Stock adjusted for {$product->product_name}.");
     }

@@ -137,6 +137,8 @@ $stepIndex = [
                 </div>
             </div>
 
+            <x-status-timeline :transaction="$transaction" />
+
             <div class="card p-5">
                 <div class="mb-3 font-semibold">Next step</div>
 

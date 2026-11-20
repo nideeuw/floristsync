@@ -46,11 +46,15 @@ class SettingService
 
     public function save(array $data): void
     {
+        $before = array_intersect_key($this->all(), $data);
+
         DB::transaction(function () use ($data) {
             foreach ($data as $key => $value) {
                 $this->set($key, $value);
             }
         });
+
+        app(AuditService::class)->logChanges('settings.updated', 'settings', null, $before, $data);
     }
 
     public function form(): array

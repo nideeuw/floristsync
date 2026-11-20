@@ -66,6 +66,8 @@ class OrderCancellationService
             ]);
         });
 
+        app(AuditService::class)->log('cancellation.approved', 'transaction', $transaction->id, ['cancel_request_status' => Transaction::CANCEL_PENDING], ['cancel_request_status' => Transaction::CANCEL_APPROVED], userId: $admin->id);
+
         $this->notifyMember(
             $transaction,
             'Cancellation approved',
@@ -84,6 +86,8 @@ class OrderCancellationService
 
             $locked->update(['cancel_request_status' => Transaction::CANCEL_REJECTED]);
         });
+
+        app(AuditService::class)->log('cancellation.rejected', 'transaction', $transaction->id, ['cancel_request_status' => Transaction::CANCEL_PENDING], ['cancel_request_status' => Transaction::CANCEL_REJECTED], userId: $admin->id);
 
         $this->notifyMember(
             $transaction,
