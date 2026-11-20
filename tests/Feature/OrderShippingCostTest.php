@@ -32,6 +32,8 @@ class OrderShippingCostTest extends TestCase
 
         $this->seed(RolesMenusSeeder::class);
 
+        config(['services.rajaongkir.origin_id' => 501]);
+
         $this->member = User::factory()->create([
             'role_id' => Role::where('role_name', Role::MEMBER)->value('id'),
             'is_active' => true,
@@ -91,7 +93,10 @@ class OrderShippingCostTest extends TestCase
         $this->assertSame('REG', $transaction->shipping_service);
         $this->assertSame('jne', $transaction->courier);
         $this->assertSame(215000, (int) $transaction->total);
-        $this->assertFalse(Schema::hasColumn('transactions', 'destination_id'));
+        $this->assertTrue(Schema::hasColumn('transactions', 'destination_id'));
+        $this->assertSame(123, (int) $transaction->destination_id);
+        $this->assertSame('081234567890', $transaction->shipping_phone);
+        $this->assertSame(501, (int) $transaction->shipping_origin_id);
     }
 
     public function test_free_shipping_is_stored_as_zero(): void
@@ -109,6 +114,9 @@ class OrderShippingCostTest extends TestCase
         $this->assertNull($transaction->shipping_cost);
         $this->assertNull($transaction->shipping_service);
         $this->assertNull($transaction->courier);
+        $this->assertNull($transaction->destination_id);
+        $this->assertNull($transaction->shipping_origin_id);
+        $this->assertNull($transaction->shipping_phone);
         $this->assertSame(200000, (int) $transaction->total);
     }
 

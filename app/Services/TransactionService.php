@@ -100,6 +100,9 @@ class TransactionService
                     ? "{$customer['name']} ({$customer['phone']})\n{$delivery['address']}"
                     : null,
                 'courier' => $isDelivery ? $delivery['courier'] : null,
+                'destination_id' => $isDelivery ? (int) $delivery['destination_id'] : null,
+                'shipping_origin_id' => $isDelivery ? (int) app(SettingService::class)->get('shipping_origin_id', config('services.rajaongkir.origin_id')) : null,
+                'shipping_phone' => $isDelivery ? $customer['phone'] : null,
                 'shipping_cost' => $isDelivery ? (int) $shippingCost : null,
                 'shipping_service' => $isDelivery ? Str::limit((string) $delivery['service'], 20, '') : null,
                 'notes' => $customer['notes'] ?? null,
