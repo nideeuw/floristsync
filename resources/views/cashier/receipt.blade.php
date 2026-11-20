@@ -44,6 +44,7 @@ $storePhone = $storePhone ?? null;
             }
         }
     </style>
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 
 <body class="bg-cream py-6 font-mono text-xs text-ink print:bg-white print:py-0 print:m-0">

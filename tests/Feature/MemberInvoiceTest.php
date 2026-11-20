@@ -220,6 +220,17 @@ class MemberInvoiceTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_the_invoice_page_has_exactly_one_print_button(): void
+    {
+        $transaction = $this->createOnlineOrder($this->member, Transaction::COMPLETED, 'settlement');
+
+        $response = $this->actingAs($this->member)->get(route('track.invoice', $transaction));
+
+        $response->assertOk();
+        $response->assertSee('Back to Order');
+        $this->assertSame(1, substr_count($response->getContent(), 'window.print()'));
+    }
+
     public function test_track_page_shows_print_invoice_link_for_selected_order(): void
     {
         $transaction = $this->createOnlineOrder($this->member, Transaction::COMPLETED, 'settlement');

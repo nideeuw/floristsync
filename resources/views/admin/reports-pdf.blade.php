@@ -16,6 +16,7 @@
         .right { text-align: right; }
         .empty { padding: 14px 8px; text-align: center; color: #888; }
     </style>
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 <body>
     <div class="head">

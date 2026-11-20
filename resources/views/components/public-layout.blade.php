@@ -136,8 +136,10 @@ $navLinks = [
 
     {{-- Footer --}}
     <footer id="contact" class="relative mt-24 overflow-hidden rounded-t-[2.5rem] bg-ink text-cream">
-        <div class="mx-auto grid max-w-7xl gap-10 px-6 pb-10 pt-14 md:grid-cols-12">
-            <div class="md:col-span-5">
+        @php($location = $storeSettings->storeLocation())
+
+        <div class="mx-auto grid max-w-7xl gap-8 px-6 pb-10 pt-14 md:grid-cols-12 md:gap-10">
+            <div class="md:col-span-4">
                 <div class="font-display text-3xl font-semibold">{{ config('app.name') }}</div>
                 <p class="mt-3 max-w-sm text-sm leading-relaxed text-cream/70">
                     Fresh flowers for every special moment. Order online for pickup or delivery, or visit our store.
@@ -149,32 +151,33 @@ $navLinks = [
                 </a>
             </div>
 
-            <div class="text-sm md:col-span-3">
-                <div class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-petal">Explore</div>
-                <ul class="space-y-2 text-cream/70">
-                    <li><a href="{{ route('home') }}" class="transition hover:text-white">Home</a></li>
-                    <li><a href="{{ route('catalog') }}" class="transition hover:text-white">Catalog</a></li>
-                    <li><a href="{{ route('cart') }}" class="transition hover:text-white">Cart</a></li>
-                    @guest
-                    <li><a href="{{ route('login') }}" class="transition hover:text-white">Log in</a></li>
-                    <li><a href="{{ route('register') }}" class="transition hover:text-white">Create account</a></li>
-                    @endguest
-                </ul>
-            </div>
-
-            <div class="text-sm md:col-span-4">
+            <div class="text-sm md:col-span-8">
                 <div class="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-petal">Visit and contact</div>
-                <p class="text-cream/70">WhatsApp: +{{ $storeWhatsapp }}</p>
-                <div class="mt-2 space-y-1">
-                    @foreach ($openingLines as $line)<p class="text-cream/70">{{ $line }}</p>@endforeach
-                </div>
-                <p class="mt-4 text-xs text-cream/50">We accept card, QRIS and e-wallet payments.</p>
-            </div>
-        </div>
 
-        <div aria-hidden="true"
-            class="pointer-events-none select-none whitespace-nowrap px-6 text-center font-display text-[22vw] leading-[0.8] text-white/5 md:text-[11rem]">
-            {{ config('app.name') }}
+                <div class="grid gap-5 sm:grid-cols-2 sm:gap-6">
+                    <div class="space-y-3 text-cream/70">
+                        @if ($location['address'] !== '')
+                        <p class="whitespace-pre-line">{{ $location['address'] }}</p>
+                        @endif
+                        <p>WhatsApp: +{{ $storeWhatsapp }}</p>
+                        <div class="space-y-1">
+                            @foreach ($openingLines as $line)<p>{{ $line }}</p>@endforeach
+                        </div>
+                        @if ($location['maps_url'])
+                        <a href="{{ $location['maps_url'] }}" target="_blank" rel="noopener"
+                            class="inline-block font-semibold text-petal transition hover:text-white">View on Google Maps &rarr;</a>
+                        @endif
+                        <p class="pt-1 text-xs text-cream/50">We accept card, QRIS and e-wallet payments.</p>
+                    </div>
+
+                    @if ($location['embed_url'])
+                    <div class="h-[180px] overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10 sm:h-auto sm:min-h-[180px]">
+                        <iframe src="{{ $location['embed_url'] }}" title="Store location map" loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade" class="h-full w-full border-0"></iframe>
+                    </div>
+                    @endif
+                </div>
+            </div>
         </div>
 
         <div class="border-t border-white/10 py-5 text-center text-xs text-cream/60">

@@ -9,6 +9,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 
 <body class="flex min-h-screen items-center justify-center p-4 font-sans text-ink antialiased {{ $dark ? 'bg-ink' : 'bg-cream' }}">

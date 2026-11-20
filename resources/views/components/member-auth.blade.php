@@ -10,6 +10,7 @@
     <title>{{ $title }} - {{ config('app.name') }}</title>
     <style>input:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px #fff inset;-webkit-text-fill-color:#374030}</style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 
 <body class="min-h-screen bg-paper font-sans text-ink antialiased">

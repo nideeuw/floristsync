@@ -14,6 +14,7 @@ $otherKey = collect($errors->keys())->diff(['email', 'password'])->first();
     <title>{{ $title }}</title>
     <style>input:-webkit-autofill{-webkit-box-shadow:0 0 0 1000px #fff inset;-webkit-text-fill-color:#374030}</style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 
 <body class="min-h-screen font-sans text-ink antialiased {{ $dark ? 'bg-ink' : 'bg-paper' }}">

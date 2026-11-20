@@ -57,19 +57,10 @@ $steps = [
 
                 {{-- Illustration --}}
                 <div class="relative mx-auto w-full max-w-sm lg:max-w-md">
-                    <div class="animate-float-slow aspect-[480/560] w-full">
-                        <svg viewBox="0 0 480 560" class="h-full w-full" role="img"
-                            aria-label="Illustration of a flower bouquet in a vase" xmlns="http://www.w3.org/2000/svg">
+                    <div class="animate-float-slow relative aspect-[480/560] w-full">
+                        {{-- definisi bunga dipakai section "How it works" --}}
+                        <svg width="0" height="0" class="absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
                             <defs>
-                                <linearGradient id="fsArch" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0" stop-color="#E4EADC" />
-                                    <stop offset="1" stop-color="#AEBD9F" />
-                                </linearGradient>
-                                <linearGradient id="fsVase" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0" stop-color="#FFFFFF" />
-                                    <stop offset="0.55" stop-color="#F7EEE9" />
-                                    <stop offset="1" stop-color="#E3D2CA" />
-                                </linearGradient>
                                 <g id="fsBloom">
                                     <ellipse cx="0" cy="-24" rx="14" ry="24" />
                                     <ellipse cx="0" cy="-24" rx="14" ry="24" transform="rotate(60)" />
@@ -79,44 +70,10 @@ $steps = [
                                     <ellipse cx="0" cy="-24" rx="14" ry="24" transform="rotate(300)" />
                                     <circle r="9" fill="#F4D58D" stroke="none" />
                                 </g>
-                                <path id="fsLeaf" d="M0 0C16-16 42-16 60 0 42 16 16 16 0 0Z" />
                             </defs>
-
-                            <path d="M24 560V250A216 216 0 0 1 456 250V560Z" fill="url(#fsArch)" />
-
-                            <g fill="none" stroke="#7E8C69" stroke-width="5" stroke-linecap="round">
-                                <path d="M240 400C240 330 240 230 240 150" />
-                                <path d="M240 400C220 330 175 270 150 205" />
-                                <path d="M240 400C262 330 305 265 335 200" />
-                                <path d="M240 400C225 350 200 320 188 285" />
-                                <path d="M240 400C255 350 282 320 296 280" />
-                                <path d="M240 400C215 360 140 330 112 300" />
-                                <path d="M240 400C270 360 345 330 372 296" />
-                            </g>
-
-                            <g fill="#8FA07C">
-                                <use href="#fsLeaf" transform="translate(238 345) rotate(-140) scale(0.9)" />
-                                <use href="#fsLeaf" transform="translate(242 330) rotate(-35) scale(0.9)" />
-                                <use href="#fsLeaf" transform="translate(200 300) rotate(-165) scale(0.7)" />
-                                <use href="#fsLeaf" transform="translate(285 300) rotate(-15) scale(0.7)" />
-                                <use href="#fsLeaf" transform="translate(165 250) rotate(-120) scale(0.6)" />
-                                <use href="#fsLeaf" transform="translate(318 245) rotate(-60) scale(0.6)" />
-                            </g>
-
-                            <g stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.5">
-                                <use href="#fsBloom" fill="#F6B0BB" transform="translate(240 150) scale(1.35)" />
-                                <use href="#fsBloom" fill="#FFFFFF" transform="translate(150 205) scale(1.1)" />
-                                <use href="#fsBloom" fill="#E98FA0" transform="translate(335 200) scale(1.15)" />
-                                <use href="#fsBloom" fill="#F1C8CB" transform="translate(188 285)" />
-                                <use href="#fsBloom" fill="#FFFFFF" transform="translate(296 280) scale(0.95)" />
-                                <use href="#fsBloom" fill="#F6B0BB" transform="translate(112 300) scale(0.85)" />
-                                <use href="#fsBloom" fill="#F1C8CB" transform="translate(372 296) scale(0.85)" />
-                            </g>
-
-                            <ellipse cx="240" cy="548" rx="92" ry="9" fill="#374030" opacity="0.12" />
-                            <path d="M196 392C190 440 150 470 168 520C176 545 304 545 312 520C330 470 290 440 284 392Z" fill="url(#fsVase)" />
-                            <ellipse cx="240" cy="392" rx="44" ry="9" fill="#E3D2CA" />
                         </svg>
+                        <div class="absolute inset-x-[5%] bottom-0 top-[6%] rounded-t-full bg-gradient-to-b from-sage/20 to-sage/60"></div>
+                        <img src="{{ asset('images/flowerbouquet.png') }}" alt="Fresh flower basket from FloristSync" class="relative h-full w-full object-contain drop-shadow-xl" loading="eager">
                     </div>
 
                     <div class="animate-float absolute -left-2 top-10 flex items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-xl backdrop-blur sm:-left-8">

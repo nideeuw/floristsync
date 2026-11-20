@@ -62,6 +62,7 @@ $isDelivery = $transaction->isDelivery();
             }
         }
     </style>
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
 </head>
 
 <body class="bg-cream/40 min-h-screen py-8 text-ink antialiased print:bg-white print:py-0 print:m-0">
@@ -298,22 +299,6 @@ $isDelivery = $transaction->isDelivery();
             <p class="font-medium text-ink">Thank you for your purchase with {{ $storeName }}!</p>
             <p class="mt-1 text-[11px]">This document is a valid electronic proof of purchase.</p>
         </div>
-    </div>
-
-    {{-- Screen Bottom Action Bar --}}
-    <div class="no-print mx-auto mt-6 flex max-w-3xl justify-center gap-3 px-4 sm:px-0">
-        <button type="button" onclick="window.print()"
-            class="btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-xs font-semibold shadow-sm">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            <span>Print Invoice</span>
-        </button>
-        <a href="{{ route('track', ['order' => $transaction->order_number]) }}"
-            class="btn-outline inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-semibold">
-            <span>Back to Order History</span>
-        </a>
     </div>
 
     @endif

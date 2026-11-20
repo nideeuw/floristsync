@@ -72,6 +72,26 @@ class SettingService
         ];
     }
 
+    public function storeLocation(): array
+    {
+        $address = trim((string) $this->get('address', config('floristsync.store_address', '')));
+        $latitude = $this->get('store_latitude');
+        $longitude = $this->get('store_longitude');
+
+        $hasCoordinates = is_numeric($latitude) && is_numeric($longitude)
+            && abs((float) $latitude) <= 90 && abs((float) $longitude) <= 180;
+
+        $query = $hasCoordinates
+            ? number_format((float) $latitude, 6, '.', '').','.number_format((float) $longitude, 6, '.', '')
+            : ($address !== '' ? $address : null);
+
+        return [
+            'address' => $address,
+            'maps_url' => $query ? 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($query) : null,
+            'embed_url' => $query ? 'https://maps.google.com/maps?q='.rawurlencode($query).'&z=16&output=embed' : null,
+        ];
+    }
+
     public function whatsappNumber(): string
     {
         return (string) $this->get('whatsapp_number', config('floristsync.whatsapp_number'));
