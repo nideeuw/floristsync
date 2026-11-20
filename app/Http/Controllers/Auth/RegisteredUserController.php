@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\CartService;
+use App\Support\PasswordMessages;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
             'email.unique' => 'This email is already registered. Try logging in or use another email.',
+            ...PasswordMessages::forMember(),
         ]);
 
         $guestCart = session('cart', []);

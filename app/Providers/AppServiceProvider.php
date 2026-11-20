@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Observers\TransactionObserver;
 use App\Services\AuditService;
+use App\Support\PasswordMessages;
 use App\View\Composers\MenuComposer;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -57,8 +58,8 @@ class AppServiceProvider extends ServiceProvider
             return $conn;
         });
 
-        $this->app['router']->aliasMiddleware('prevent-back', PreventBackHistory::class);
-        $this->app['router']->aliasMiddleware('no-cache', PreventBackHistory::class);
+        $this->app->make('router')->aliasMiddleware('prevent-back', PreventBackHistory::class);
+        $this->app->make('router')->aliasMiddleware('no-cache', PreventBackHistory::class);
 
         Password::defaults(function () {
             $isStaff = false;
@@ -129,5 +130,9 @@ class AppServiceProvider extends ServiceProvider
             'components.pos-layout',
             'components.public-layout',
         ], MenuComposer::class);
+
+        $translator = $this->app->make('translator');
+        $translator->get('validation.password.letters');
+        $translator->addLines(PasswordMessages::translatorLines(), $this->app->getLocale());
     }
 }

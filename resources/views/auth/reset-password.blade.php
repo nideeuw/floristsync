@@ -9,6 +9,7 @@
         <x-member-field name="email" label="Email" type="email" icon="mail" :value="$request->email"
             autocomplete="username" required autofocus />
         <x-member-field name="password" label="New password" type="password" icon="lock" autocomplete="new-password" required />
+        <x-password-strength for="password" class="-mt-2" />
         <x-member-field name="password_confirmation" label="Confirm password" type="password" icon="lock-keyhole"
             autocomplete="new-password" required />
 
