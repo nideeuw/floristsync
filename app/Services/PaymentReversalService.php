@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\RefundFailedException;
+use App\Models\Payment;
 use App\Models\Transaction;
 use DomainException;
 use Illuminate\Support\Str;
@@ -71,6 +73,7 @@ class PaymentReversalService
 
         if ($remoteStatus === 'refund') {
             $payment->update(['payment_status' => 'refund']);
+            $this->recordRefund($payment, $remote);
 
             return;
         }
@@ -90,7 +93,9 @@ class PaymentReversalService
                 $remote = $this->midtrans->getStatus($orderId);
 
                 if (($remote['transaction_status'] ?? null) !== 'settlement') {
-                    throw $e;
+                    $this->markRefundFailed($transaction);
+
+                    throw new RefundFailedException($e->getMessage(), 0, $e);
                 }
 
                 $remoteStatus = 'settlement';
@@ -115,13 +120,44 @@ class PaymentReversalService
             ]);
         } catch (DomainException $e) {
             if (! str_contains($e->getMessage(), 'Duplicate refund ID')) {
-                throw $e;
+                // Midtrans rejected the refund: it is recorded and the caller keeps the order as it was.
+                $this->markRefundFailed($transaction);
+
+                throw new RefundFailedException($e->getMessage(), 0, $e);
             }
 
             $response = $this->midtrans->getStatus($orderId) ?? [];
         }
 
         $payment->update(['payment_status' => $response['transaction_status'] ?? 'refund']);
+        $this->recordRefund($payment, $response + ['transaction_status' => 'refund']);
+    }
+
+    /** Stores what Midtrans says about a refund. Safe to call again for the same refund. */
+    public function recordRefund(Payment $payment, array $remote): void
+    {
+        $status = $remote['transaction_status'] ?? 'refund';
+        $done = in_array($status, ['refund', 'partial_refund'], true);
+        $amount = $remote['refund_amount'] ?? ($status === 'refund' ? $payment->amount : null);
+
+        $payment->update([
+            'refund_status' => $done ? 'success' : 'pending',
+            'refund_amount' => $amount === null ? null : (int) round((float) $amount),
+            'refunded_at' => $done ? ($payment->refunded_at ?? now()) : null,
+            'refund_key' => $remote['refund_key'] ?? 'RF-'.$payment->midtrans_order_id,
+        ]);
+    }
+
+    /** Never overwrites a successful refund. Reads the row again, so it also works after a rollback. */
+    public function markRefundFailed(Transaction $transaction): void
+    {
+        $payment = Payment::where('transaction_id', $transaction->id)->latest('id')->first();
+
+        if ($payment === null || $payment->refund_status === 'success') {
+            return;
+        }
+
+        $payment->update(['refund_status' => 'failed']);
     }
 
     private function isPaid(array $remote): bool

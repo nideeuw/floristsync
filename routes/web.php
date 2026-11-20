@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\OrderCancellationController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\OrderMilestoneController;
 use App\Http\Controllers\Admin\OrderShippingController;
+use App\Http\Controllers\Admin\PaymentIssueController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RestockController;
@@ -131,6 +132,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.reject');
         Route::patch('order-cancellations/{transaction}/cancel', [OrderCancellationController::class, 'cancel'])
             ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.cancel');
+        Route::patch('order-cancellations/{transaction}/retry-refund', [OrderCancellationController::class, 'retryRefund'])
+            ->middleware('menu.perm:admin.orders.cancellations,approve')->name('orders.cancellations.retry-refund');
+
+        Route::get('payment-issues', [PaymentIssueController::class, 'index'])
+            ->middleware('menu.perm:admin.orders.payment-issues')->name('orders.payment-issues');
+        Route::post('payment-issues/{transaction}/recheck', [PaymentIssueController::class, 'recheck'])
+            ->middleware('menu.perm:admin.orders.payment-issues,edit')->name('orders.payment-issues.recheck');
 
         // ---- Inventory ----
         Route::middleware('menu.perm:admin.products.index')->group(function () {

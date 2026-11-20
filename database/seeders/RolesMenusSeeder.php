@@ -62,6 +62,7 @@ class RolesMenusSeeder extends Seeder
         $m['order_milestone'] = $this->menu('Order Milestones', 'ADMIN_PANEL', 2, $m['order_group'], 'list-checks', 'admin.orders.milestone');
         $m['order_shipping']  = $this->menu('Shipping & Tracking', 'ADMIN_PANEL', 3, $m['order_group'], 'truck', 'admin.orders.shipping');
         $m['order_cancel']    = $this->menu('Order Cancellations', 'ADMIN_PANEL', 4, $m['order_group'], 'circle-x', 'admin.orders.cancellations');
+        $m['payment_issues']  = $this->menu('Payment Issues', 'ADMIN_PANEL', 5, $m['order_group'], 'receipt', 'admin.orders.payment-issues');
 
         $m['inventory_group'] = $this->menu('Inventory', 'ADMIN_PANEL', 20, null, 'boxes', null, 'group');
         $m['products']        = $this->menu('Product Catalog', 'ADMIN_PANEL', 1, $m['inventory_group'], 'tag', 'admin.products.index');
@@ -111,6 +112,7 @@ class RolesMenusSeeder extends Seeder
             'order_milestone' => [Role::ADMIN_ORDER => $view],
             'order_shipping'  => [Role::ADMIN_ORDER => $edit],
             'order_cancel'    => [Role::ADMIN_ORDER => [1, 0, 1, 0, 1, 0]],
+            'payment_issues'  => [Role::ADMIN_ORDER => $edit, Role::OWNER => $view],
 
             'products'        => [Role::ADMIN_INVENTORY => $crud],
             'categories'      => [Role::ADMIN_INVENTORY => $crud],

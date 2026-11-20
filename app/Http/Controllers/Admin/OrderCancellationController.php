@@ -19,6 +19,7 @@ class OrderCancellationController extends Controller
     {
         return view('admin.orders.cancellations', [
             'requests' => $this->service->pendingRequests(),
+            'failedRefunds' => $this->service->failedRefunds(),
         ]);
     }
 
@@ -43,6 +44,18 @@ class OrderCancellationController extends Controller
         }
 
         return back()->with('success', 'Cancellation request rejected. The order stays in processing.');
+    }
+
+    /** Tries the refund of an already cancelled order again after Midtrans rejected it. */
+    public function retryRefund(Request $request, Transaction $transaction): RedirectResponse
+    {
+        try {
+            $this->service->retryRefund($transaction, $request->user());
+        } catch (DomainException|RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'The refund was sent to Midtrans.');
     }
 
     public function cancel(Request $request, Transaction $transaction): RedirectResponse
