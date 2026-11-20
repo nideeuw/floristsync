@@ -87,6 +87,29 @@ class TrackController extends Controller
         ]);
     }
 
+    /** Sends the invoice email again. At most 3 times a day for each order. */
+    public function resendInvoice(Request $request, Transaction $transaction): RedirectResponse
+    {
+        abort_unless($transaction->user_id === $request->user()?->id, 404);
+        abort_unless($transaction->transaction_type === Transaction::TYPE_ONLINE, 404);
+
+        $paid = [Transaction::PROCESSING, Transaction::READY_FOR_PICKUP, Transaction::SHIPPED, Transaction::COMPLETED];
+
+        if (! in_array($transaction->status, $paid, true)) {
+            return back()->with('error', 'The invoice is only available for paid orders.');
+        }
+
+        $allowed = \Illuminate\Support\Facades\RateLimiter::attempt('invoice-resend:'.$transaction->id, 3, fn () => true, 86400);
+
+        if (! $allowed) {
+            return back()->with('error', 'You can resend the invoice 3 times a day for each order. Please try again tomorrow.');
+        }
+
+        \App\Jobs\SendInvoiceMail::dispatch($transaction->id, true)->afterResponse();
+
+        return back()->with('success', "The invoice will be sent to {$request->user()->email} in a moment.");
+    }
+
     public function invoice(Request $request, Transaction $transaction, SettingService $settings): View
     {
         $user = $request->user();

@@ -29,6 +29,12 @@
                 <x-ui.icon name="printer" class="h-4 w-4" />
                 <span>Print invoice</span>
             </a>
+            @if (in_array($selected->status, ['processing', 'ready_for_pickup', 'shipped', 'completed'], true))
+            <form method="POST" action="{{ route('track.invoice.resend', $selected->order_number) }}">
+                @csrf
+                <button class="btn-outline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold">Resend invoice</button>
+            </form>
+            @endif
             <div class="text-right">
                 <div class="text-xs font-semibold uppercase tracking-[0.2em] text-moss">Total</div>
                 <div class="mt-1 text-2xl font-bold text-moss">{{ rupiah($selected->total) }}</div>
