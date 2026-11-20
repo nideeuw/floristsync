@@ -8,15 +8,19 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Services\AuditService;
 use App\Services\InventoryService;
+use App\Services\ProductImageService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function __construct(private InventoryService $inventory, private AuditService $audit) {}
+    public function __construct(
+        private InventoryService $inventory,
+        private AuditService $audit,
+        private ProductImageService $images,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -45,15 +49,20 @@ class ProductController extends Controller
     {
         $data = $request->validated();
 
+        try {
+            $image = $request->hasFile('image') ? $this->images->store($request->file('image')) : null;
+        } catch (DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
         $product = Product::create([
             'category_id' => $data['category_id'],
             'product_name' => $data['product_name'],
             'description' => $data['description'] ?? null,
             'price' => $data['price'],
-            'weight_gram' => $data['weight_gram'] ?? null,
             'status' => $data['status'],
             'is_active' => $request->boolean('is_active'),
-            'image' => $request->file('image')?->store('products', 'public'),
+            'image' => $image,
             // stock is stored in the stocks table (see InventoryService)
         ]);
 
@@ -82,22 +91,30 @@ class ProductController extends Controller
             'product_name' => $data['product_name'],
             'description' => $data['description'] ?? null,
             'price' => $data['price'],
-            'weight_gram' => $data['weight_gram'] ?? null,
             'status' => $data['status'],
             'is_active' => $request->boolean('is_active'),
         ];
 
-        if ($request->hasFile('image')) {
-            if ($product->image) {
-                Storage::disk('public')->delete($product->image);
-            }
+        $oldImage = $product->image;
+        $replaced = false;
 
-            $attributes['image'] = $request->file('image')->store('products', 'public');
+        if ($request->hasFile('image')) {
+            try {
+                $attributes['image'] = $this->images->store($request->file('image'));
+                $replaced = true;
+            } catch (DomainException $e) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
         }
 
         $before = $product->only(['price', 'is_active']);
 
         $product->update($attributes);
+
+        // Delete the old file only after the new one is saved on the row.
+        if ($replaced) {
+            $this->images->delete($oldImage);
+        }
 
         $this->audit->logChanges('product.updated', 'product', $product->id, $before, $product->only(['price', 'is_active']));
 
