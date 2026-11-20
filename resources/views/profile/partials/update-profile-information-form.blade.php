@@ -84,7 +84,8 @@
         @method('PATCH')
 
         {{-- Contact --}}
-        <div class="space-y-4">
+        <div class="space-y-4"
+            x-data="{ email: {{ Js::from((string) old('email', $user->email)) }}, original: {{ Js::from((string) $user->email) }} }">
             <h3 class="flex items-center gap-2 font-semibold">
                 <x-ui.icon name="circle-user" class="h-5 w-5 text-moss" />
                 Contact
@@ -94,8 +95,15 @@
                 <x-ui.field name="name" label="Full name" :value="$user->name" autocomplete="name" required />
                 <x-ui.field name="phone" label="Phone" type="tel" :value="$user->phone" autocomplete="tel" />
                 <div class="md:col-span-2">
-                    <x-ui.field name="email" label="Email" type="email" :value="$user->email" autocomplete="username" required />
+                    <x-ui.field name="email" label="Email" type="email" :value="$user->email" autocomplete="username" required
+                        x-model="email" />
                 </div>
+            </div>
+
+            {{-- Asked only when the email address is edited --}}
+            <div x-show="email.trim().toLowerCase() !== original.toLowerCase()" x-cloak>
+                <x-ui.field name="current_password" id="email_current_password" label="Current password" type="password"
+                    autocomplete="current-password" hint="Required to change your email address." />
             </div>
         </div>
 

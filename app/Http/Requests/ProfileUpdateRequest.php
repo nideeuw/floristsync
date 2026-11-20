@@ -26,6 +26,10 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            // Only asked when the email really changes, so a stolen session cannot swap the email silently.
+            'current_password' => $this->emailIsChanging()
+                ? ['required', 'string', 'current_password']
+                : ['nullable'],
             'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s]+$/'],
             'address' => ['nullable', 'string', 'max:500'],
             'postal_code' => ['nullable', 'string', 'max:10'],
@@ -34,5 +38,24 @@ class ProfileUpdateRequest extends FormRequest
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'current_password.required' => 'Enter your current password to change your email address.',
+            'current_password.current_password' => 'The password you entered is incorrect.',
+        ];
+    }
+
+    private function emailIsChanging(): bool
+    {
+        $submitted = mb_strtolower(trim((string) $this->input('email')));
+        $current = mb_strtolower((string) $this->user()->email);
+
+        return $submitted !== $current;
     }
 }

@@ -26,7 +26,7 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $request->user()->fill($request->safe()->except('current_password'));
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
@@ -43,6 +43,7 @@ class ProfileController extends Controller
 
     /**
      * Deactivate the user's account (never delete, so order history stays intact).
+     * deactivated_by = own id marks a self-deactivation, which the member may undo at the login door.
      */
     public function destroy(Request $request): RedirectResponse
     {
@@ -54,7 +55,11 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->forceFill(['is_active' => false])->save();
+        $user->forceFill([
+            'is_active' => false,
+            'deactivated_by' => $user->id,
+            'modified_by' => $user->id,
+        ])->save();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

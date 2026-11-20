@@ -38,6 +38,7 @@ class ProfileTest extends TestCase
             ->patch('/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'current_password' => 'password',
             ]);
 
         $response
@@ -49,6 +50,56 @@ class ProfileTest extends TestCase
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
         $this->assertNull($user->email_verified_at);
+    }
+
+    public function test_name_can_be_updated_without_password_when_email_is_unchanged(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+
+        $this->actingAs($user)
+            ->patch('/profile', [
+                'name' => 'Only Name Changed',
+                'email' => $user->email,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $this->assertSame('Only Name Changed', $user->fresh()->name);
+    }
+
+    public function test_changing_email_without_password_is_rejected(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $oldEmail = $user->email;
+
+        $this->actingAs($user)
+            ->from('/profile')
+            ->patch('/profile', [
+                'name' => $user->name,
+                'email' => 'new-address@example.com',
+            ])
+            ->assertSessionHasErrors('current_password')
+            ->assertRedirect('/profile');
+
+        $this->assertSame($oldEmail, $user->fresh()->email);
+    }
+
+    public function test_changing_email_with_wrong_password_is_rejected(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $oldEmail = $user->email;
+
+        $this->actingAs($user)
+            ->from('/profile')
+            ->patch('/profile', [
+                'name' => $user->name,
+                'email' => 'new-address@example.com',
+                'current_password' => 'wrong-password',
+            ])
+            ->assertSessionHasErrors('current_password')
+            ->assertRedirect('/profile');
+
+        $this->assertSame($oldEmail, $user->fresh()->email);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
@@ -86,6 +137,7 @@ class ProfileTest extends TestCase
         $this->assertGuest();
         $this->assertNotNull($user->fresh());
         $this->assertFalse((bool) $user->fresh()->is_active);
+        $this->assertSame($user->id, (int) $user->fresh()->deactivated_by);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account(): void
