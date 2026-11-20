@@ -69,6 +69,18 @@
             </div>
         </section>
 
+        {{-- Order scheduling --}}
+        <section class="card space-y-4 p-6">
+            <h2 class="text-base font-semibold">Order scheduling</h2>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <x-ui.field name="min_lead_hours" label="Minimum lead time (hours)" type="number" min="0" max="168" inputmode="numeric"
+                    :value="$form['min_lead_hours']" hint="Customers must choose a time slot at least this many hours from now." />
+                <x-ui.field name="same_day_cutoff_hour" label="Same-day cut-off hour" type="number" min="0" max="23" inputmode="numeric"
+                    :value="$form['same_day_cutoff_hour']" hint="Orders for today are refused from this hour on (24-hour clock). Example: 16 means 16:00." />
+            </div>
+        </section>
+
         {{-- Shipping origin --}}
         <section class="card space-y-4 p-6">
             <h2 class="text-base font-semibold">Shipping origin</h2>

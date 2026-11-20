@@ -80,6 +80,23 @@
     </ol>
     @endif
 
+    @if ($selected->hasDeliverySchedule())
+    <div class="mt-6 space-y-1 rounded-2xl bg-cream px-4 py-3 text-sm">
+        @if ($selected->delivery_date)
+        <div>
+            {{ $selected->isDelivery() ? 'Delivery' : 'Pickup' }} date:
+            <span class="font-semibold">{{ $selected->delivery_date->format('D, d M Y') }}</span>
+            @if ($selected->delivery_slot_label)
+            &middot; <span class="font-semibold">{{ $selected->delivery_slot_label }}</span>
+            @endif
+        </div>
+        @endif
+        @if ($selected->card_message)
+        <div>Card message: <span class="whitespace-pre-line italic">{{ $selected->card_message }}</span></div>
+        @endif
+    </div>
+    @endif
+
     @if ($selected->isDelivery())
     <div class="mt-6 rounded-2xl bg-cream px-4 py-3 text-sm">
         Courier: <span class="font-semibold">{{ $selected->shipping_service_label ?? strtoupper($selected->courier) }}</span>

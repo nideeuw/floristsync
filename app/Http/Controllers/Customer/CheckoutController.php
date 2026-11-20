@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Services\CartService;
+use App\Services\DeliveryScheduleService;
 use App\Services\TransactionService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,7 @@ class CheckoutController extends Controller
     public function __construct(
         private CartService $cart,
         private TransactionService $transactions,
+        private DeliveryScheduleService $schedule,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -57,6 +59,7 @@ class CheckoutController extends Controller
         return view('customer.checkout', [
             'items' => $items,
             'subtotal' => $items->sum('subtotal'),
+            'schedule' => $this->schedule->formConfig(),
         ]);
     }
 
@@ -73,6 +76,9 @@ class CheckoutController extends Controller
             'service' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:500'],
             'selected' => ['nullable'],
+            ...$this->schedule->rules(
+                is_string($request->input('delivery_slot')) ? $request->input('delivery_slot') : null
+            ),
         ]);
 
         $userId = $request->user()->id;
@@ -167,6 +173,13 @@ class CheckoutController extends Controller
         } catch (DomainException|RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
+
+        // Date, slot and card message are saved on the order right after it is created.
+        $transaction->forceFill([
+            'delivery_date' => $data['delivery_date'] ?? null,
+            'delivery_slot' => $data['delivery_slot'] ?? null,
+            'card_message' => $data['card_message'] ?? null,
+        ])->save();
 
         // Remove only the ordered items from the cart; unselected items stay
         $orderedIds = collect($lines)->pluck('product_id')->all();

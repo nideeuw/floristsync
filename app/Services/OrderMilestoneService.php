@@ -18,6 +18,16 @@ class OrderMilestoneService
 
     public const LATEST_PER_COLUMN = 5;
 
+    /** Open stages are sorted by delivery date so staff see the deadline first. */
+    public const DEADLINE_STATUSES = [
+        Transaction::PENDING_PAYMENT,
+        Transaction::PROCESSING,
+        Transaction::READY_FOR_PICKUP,
+        Transaction::SHIPPED,
+    ];
+
+    private const SLOT_ORDER = "CASE delivery_slot WHEN 'morning' THEN 1 WHEN 'afternoon' THEN 2 WHEN 'evening' THEN 3 ELSE 4 END";
+
     /**
      * Online orders only (POS sales never enter the milestone flow).
      * Returns one entry per column: status, label, total count and the latest orders.
@@ -39,6 +49,10 @@ class OrderMilestoneService
                 'orders' => Transaction::where('transaction_type', Transaction::TYPE_ONLINE)
                     ->where('status', $status)
                     ->with('payment', 'user:id,name')
+                    ->when(
+                        in_array($status, self::DEADLINE_STATUSES, true),
+                        fn ($query) => $query->orderByRaw('delivery_date IS NULL')->orderBy('delivery_date')->orderByRaw(self::SLOT_ORDER)
+                    )
                     ->latest('id')
                     ->limit(self::LATEST_PER_COLUMN)
                     ->get(),

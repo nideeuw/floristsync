@@ -328,14 +328,67 @@
                     </div>
                 </div>
 
+                {{-- Schedule --}}
+                <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8"
+                    x-data="{ date: @js(old('delivery_date', '')), closed: @js($schedule['closed_weekdays']), count: @js(mb_strlen((string) old('card_message', ''))), get closedDay() { return !!this.date && this.closed.includes(new Date(this.date + 'T00:00:00').getDay()); } }">
+                    <div class="mb-5 flex items-center gap-3">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">3</span>
+                        <h2 class="font-display text-3xl font-semibold">When do you need it? <span class="text-base font-normal text-ink/50">(optional)</span></h2>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Date</label>
+                            <input type="date" name="delivery_date" class="input" x-model="date"
+                                min="{{ $schedule['min'] }}" max="{{ $schedule['max'] }}">
+                            <p x-show="closedDay" x-cloak class="mt-1 text-sm text-red-600">We are closed on this day. Please pick another date.</p>
+                            @error('delivery_date')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Time slot</label>
+                            <select name="delivery_slot" class="input">
+                                <option value="">Choose a time slot</option>
+                                @foreach ($schedule['slots'] as $key => $label)
+                                <option value="{{ $key }}" @selected(old('delivery_slot') === $key)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('delivery_slot')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="mb-1 block text-sm font-medium">Card message</label>
+                            <textarea name="card_message" rows="3" maxlength="{{ $schedule['card_max'] }}" class="input"
+                                placeholder="A short message we will write on the card."
+                                @input="count = $event.target.value.length">{{ old('card_message') }}</textarea>
+                            <p class="mt-1 text-right text-xs text-ink/50"><span x-text="count"></span>/{{ $schedule['card_max'] }}</p>
+                            @error('card_message')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <p class="mt-3 text-xs text-ink/60">
+                        Please order at least {{ $schedule['lead_hours'] }} {{ \Illuminate\Support\Str::plural('hour', $schedule['lead_hours']) }} ahead.
+                        Orders for today close at {{ sprintf('%02d:00', $schedule['cutoff_hour']) }}.
+                        @if (count($schedule['closed_days']))
+                        We are closed on {{ implode(', ', $schedule['closed_days']) }}.
+                        @endif
+                    </p>
+                </div>
+
                 {{-- Special note --}}
                 <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8">
                     <div class="mb-5 flex items-center gap-3">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">3</span>
+                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">4</span>
                         <h2 class="font-display text-3xl font-semibold">Special note <span class="text-base font-normal text-ink/50">(optional)</span></h2>
                     </div>
                     <textarea name="notes" rows="3" maxlength="500" class="input"
-                        placeholder="Card message, preferred time, or anything we should know.">{{ old('notes') }}</textarea>
+                        placeholder="Anything else we should know.">{{ old('notes') }}</textarea>
                     @error('notes')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror

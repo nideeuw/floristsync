@@ -23,6 +23,8 @@ class SettingRequest extends FormRequest
             'shipping_origin_label' => ['nullable', 'string', 'max:255'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
+            'min_lead_hours' => ['nullable', 'integer', 'min:0', 'max:168'],
+            'same_day_cutoff_hour' => ['nullable', 'integer', 'min:0', 'max:23'],
         ];
 
         foreach (SettingService::DAYS as $day) {
@@ -77,6 +79,8 @@ class SettingRequest extends FormRequest
             'store_latitude' => $data['latitude'] ?? null,
             'store_longitude' => $data['longitude'] ?? null,
             'opening_hours' => $hours,
+            'min_lead_hours' => $data['min_lead_hours'] ?? null,
+            'same_day_cutoff_hour' => $data['same_day_cutoff_hour'] ?? null,
         ];
     }
 }

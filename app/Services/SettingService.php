@@ -68,6 +68,8 @@ class SettingService
             'shipping_origin_label' => $this->get('shipping_origin_label'),
             'store_latitude' => $this->get('store_latitude'),
             'store_longitude' => $this->get('store_longitude'),
+            'min_lead_hours' => $this->get('min_lead_hours', config('floristsync.min_lead_hours')),
+            'same_day_cutoff_hour' => $this->get('same_day_cutoff_hour', config('floristsync.same_day_cutoff_hour')),
             'hours' => $this->openingHours(),
         ];
     }

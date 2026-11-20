@@ -20,6 +20,11 @@ return [
 
     'auto_complete_shipped_days' => (int) env('AUTO_COMPLETE_SHIPPED_DAYS', 3),
 
+    // Delivery date rules at checkout. Lead time and cut-off can be changed in store settings.
+    'min_lead_hours' => (int) env('MIN_LEAD_HOURS', 3),
+    'same_day_cutoff_hour' => (int) env('SAME_DAY_CUTOFF_HOUR', 16),
+    'max_advance_days' => (int) env('MAX_ADVANCE_DAYS', 60),
+
     // Fallback opening hours, used until the owner saves store settings.
     'opening_hours' => array_fill_keys(
         ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],

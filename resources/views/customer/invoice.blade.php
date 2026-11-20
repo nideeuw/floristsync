@@ -205,6 +205,30 @@ $isDelivery = $transaction->isDelivery();
             </div>
         </div>
 
+        @if ($transaction->hasDeliverySchedule())
+        <div class="avoid-break border-b border-blush/80 py-5 text-xs">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-moss">{{ $isDelivery ? 'Delivery' : 'Pickup' }} Schedule</div>
+            <div class="mt-2 space-y-1 text-ink/80">
+                @if ($transaction->delivery_date)
+                <div>
+                    <span class="text-ink/60">Date:</span>
+                    <span class="font-semibold text-ink">{{ $transaction->delivery_date->format('D, d M Y') }}</span>
+                    @if ($transaction->delivery_slot_label)
+                    <span class="text-ink/60">&middot; Time slot:</span>
+                    <span class="font-semibold text-ink">{{ $transaction->delivery_slot_label }}</span>
+                    @endif
+                </div>
+                @endif
+                @if ($transaction->card_message)
+                <div>
+                    <span class="text-ink/60">Card message:</span>
+                    <span class="whitespace-pre-line italic">{{ $transaction->card_message }}</span>
+                </div>
+                @endif
+            </div>
+        </div>
+        @endif
+
         {{-- Order Items Table --}}
         <div class="py-6">
             <table class="w-full text-left text-xs">
@@ -287,7 +311,7 @@ $isDelivery = $transaction->isDelivery();
 
                 @if ($transaction->notes)
                 <div>
-                    <div class="font-bold uppercase tracking-wider text-[10px] text-moss">Special Notes / Card Message</div>
+                    <div class="font-bold uppercase tracking-wider text-[10px] text-moss">Special Notes</div>
                     <div class="mt-1.5 whitespace-pre-line italic text-ink/80 leading-relaxed">{{ $transaction->notes }}</div>
                 </div>
                 @endif

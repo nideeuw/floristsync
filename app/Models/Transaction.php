@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasAuditColumns;
+use App\Services\DeliveryScheduleService;
 use App\Services\ShippingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,6 +48,7 @@ class Transaction extends Model
         'cancelled_at' => 'datetime',
         'cancel_requested_at' => 'datetime',
         'shipped_at' => 'datetime',
+        'delivery_date' => 'date',
     ];
 
     protected static function booted(): void
@@ -120,6 +122,16 @@ class Transaction extends Model
             && $this->status === self::PENDING_PAYMENT
             && $deadline !== null
             && $deadline->isFuture();
+    }
+
+    public function hasDeliverySchedule(): bool
+    {
+        return $this->delivery_date !== null || filled($this->card_message);
+    }
+
+    public function getDeliverySlotLabelAttribute(): ?string
+    {
+        return DeliveryScheduleService::slotLabel($this->delivery_slot);
     }
 
     public function getFulfillmentAttribute(): string

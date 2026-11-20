@@ -77,6 +77,29 @@ $stepIndex = [
                 </div>
             </div>
 
+            {{-- Date and card message --}}
+            @if ($transaction->hasDeliverySchedule())
+            <div class="card p-5 text-sm">
+                <div class="mb-3 font-semibold">Date &amp; card message</div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <div class="text-xs uppercase text-gray-500">{{ $isDelivery ? 'Delivery' : 'Pickup' }} date</div>
+                        <div class="font-semibold">{{ $transaction->delivery_date?->format('D, d M Y') ?? '-' }}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase text-gray-500">Time slot</div>
+                        <div class="font-semibold">{{ $transaction->delivery_slot_label ?? '-' }}</div>
+                    </div>
+                </div>
+                @if ($transaction->card_message)
+                <div class="mt-4 border-t border-blush pt-4">
+                    <div class="text-xs uppercase text-gray-500">Card message</div>
+                    <p class="mt-1 whitespace-pre-line italic text-gray-700">{{ $transaction->card_message }}</p>
+                </div>
+                @endif
+            </div>
+            @endif
+
             {{-- Delivery or pickup --}}
             @if ($isDelivery)
             <div class="card p-5 text-sm" x-data="{ copied: false }">

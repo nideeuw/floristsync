@@ -25,6 +25,14 @@
                             <span class="truncate text-sm font-semibold">{{ $order->user?->name ?? '-' }}</span>
                             <span class="whitespace-nowrap text-sm">{{ rupiah($order->total) }}</span>
                         </div>
+                        @if ($order->delivery_date)
+                        <div class="mt-1 truncate text-xs font-semibold {{ in_array($column['status'], \App\Services\OrderMilestoneService::DEADLINE_STATUSES, true) && $order->delivery_date->lte(today()) ? 'text-red-700' : 'text-moss' }}">
+                            Due {{ $order->delivery_date->format('D, d M') }}@if ($order->delivery_slot) &middot; {{ ucfirst($order->delivery_slot) }}@endif
+                        </div>
+                        @endif
+                        @if ($order->card_message)
+                        <div class="mt-0.5 truncate text-xs italic text-gray-500">Card: {{ $order->card_message }}</div>
+                        @endif
                         <div class="mt-0.5 flex items-center justify-between gap-2 text-xs text-gray-500">
                             <span class="truncate">
                                 @if ($order->isDelivery())
