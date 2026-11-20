@@ -76,10 +76,8 @@ class CheckoutController extends Controller
             'service' => ['required_if:fulfillment,delivery', 'nullable', 'string', 'max:20'],
             'notes' => ['nullable', 'string', 'max:500'],
             'selected' => ['nullable'],
-            ...$this->schedule->rules(
-                is_string($request->input('delivery_slot')) ? $request->input('delivery_slot') : null
-            ),
-        ]);
+            ...$this->schedule->rules($request->string('delivery_slot')->toString()),
+        ], $this->messages());
 
         $userId = $request->user()->id;
 
@@ -95,6 +93,34 @@ class CheckoutController extends Controller
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Clear English messages for the checkout form (shown next to each field and in the top summary).
+     *
+     * @return array<string, string>
+     */
+    private function messages(): array
+    {
+        return [
+            'name.required' => 'Please enter your full name.',
+            'name.max' => 'The name cannot be longer than 100 characters.',
+            'phone.required' => 'Please enter your phone number.',
+            'phone.max' => 'The phone number cannot be longer than 20 characters.',
+            'email.email' => 'Please enter a valid email address.',
+            'email.max' => 'The email cannot be longer than 150 characters.',
+            'fulfillment.required' => 'Please choose pickup or delivery.',
+            'fulfillment.in' => 'Please choose pickup or delivery.',
+            'address.required_if' => 'Please enter your full delivery address.',
+            'address.max' => 'The address cannot be longer than 500 characters.',
+            'destination_id.required_if' => 'Please pick your city or district from the list.',
+            'destination_id.integer' => 'Please pick your city or district from the list.',
+            'courier.required_if' => 'Please choose a courier and a service.',
+            'courier.in' => 'Please choose a valid courier.',
+            'service.required_if' => 'Please choose a courier and a service.',
+            'service.max' => 'Please choose a courier and a service.',
+            'notes.max' => 'The note cannot be longer than 500 characters.',
+        ];
     }
 
     private function placeOrder(Request $request, array $data, int $userId): RedirectResponse
