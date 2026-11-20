@@ -38,11 +38,37 @@
                 },
 
                 init() {
+                    // A server error on a delivery field must never sit inside a collapsed block.
+                    if (cfg.forceDelivery) {
+                        this.method = 'delivery';
+                    }
+
                     this.$watch('method', () => this.loadCosts());
                     this.$watch('courier', () => { this.service = ''; this.loadCosts(); });
 
                     if (this.method === 'delivery' && this.destinationId) {
                         this.loadCosts();
+                    }
+
+                    if (cfg.hasErrors) {
+                        setTimeout(() => this.scrollToError(), 150);
+                    }
+                },
+
+                // Mobile: jump to the first visible field error. Desktop: show the red summary at the top.
+                scrollToError() {
+                    const mobile = window.matchMedia('(max-width: 1023px)').matches;
+                    const first = Array.from(this.$root.querySelectorAll('[data-field-error]'))
+                        .find(el => el.offsetParent !== null);
+                    const summary = document.getElementById('checkout-errors');
+                    const target = mobile && first ? first : (summary || first);
+
+                    if (!target) return;
+
+                    target.scrollIntoView({ behavior: 'smooth', block: mobile && first ? 'center' : 'start' });
+
+                    if (!mobile && summary) {
+                        summary.focus({ preventScroll: true });
                     }
                 },
 
@@ -173,6 +199,8 @@
             'csrf' => csrf_token(),
             'destinationsUrl' => url('/api/shipping/destinations'),
             'costUrl' => url('/api/shipping/cost'),
+            'hasErrors' => $errors->any(),
+            'forceDelivery' => $errors->hasAny(['address', 'destination_id', 'courier', 'service']),
         ];
     @endphp
 
@@ -187,6 +215,19 @@
             <input type="hidden" name="selected[]" value="{{ $item->product->id }}">
             @endforeach
 
+            {{-- Error summary --}}
+            @if ($errors->any())
+            <div id="checkout-errors" role="alert" tabindex="-1"
+                class="scroll-mt-24 rounded-2xl bg-red-100 px-5 py-4 text-sm text-red-800 ring-1 ring-red-300 focus:outline-none lg:col-span-3">
+                <p class="font-semibold">We could not place your order. Please fix the following:</p>
+                <ul class="mt-2 list-inside list-disc space-y-0.5">
+                    @foreach ($errors->unique() as $message)
+                    <li>{{ $message }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
             <div class="space-y-6 lg:col-span-2">
                 {{-- Contact --}}
                 <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8">
@@ -196,19 +237,34 @@
                     </div>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Full name</label>
-                            <input type="text" name="name" required class="input"
+                            <label for="checkout_name" class="mb-1 block text-sm font-medium">Full name</label>
+                            <input type="text" name="name" id="checkout_name" required
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('name')])
+                                @if ($errors->has('name')) aria-invalid="true" @endif
                                 value="{{ old('name', $user->name) }}">
+                            @error('name')
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
                         </div>
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Phone</label>
-                            <input type="text" name="phone" required class="input"
+                            <label for="checkout_phone" class="mb-1 block text-sm font-medium">Phone</label>
+                            <input type="text" name="phone" id="checkout_phone" required
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('phone')])
+                                @if ($errors->has('phone')) aria-invalid="true" @endif
                                 value="{{ old('phone', $user->phone) }}">
+                            @error('phone')
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
                         </div>
                         <div class="md:col-span-2">
-                            <label class="mb-1 block text-sm font-medium">Email (optional)</label>
-                            <input type="email" name="email" class="input"
+                            <label for="checkout_email" class="mb-1 block text-sm font-medium">Email (optional)</label>
+                            <input type="email" name="email" id="checkout_email"
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('email')])
+                                @if ($errors->has('email')) aria-invalid="true" @endif
                                 value="{{ old('email', $user->email) }}">
+                            @error('email')
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
                 </div>
@@ -241,14 +297,16 @@
                     </div>
 
                     @error('fulfillment')
-                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                    <p data-field-error class="mt-2 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                     @enderror
 
                     <div x-show="method === 'delivery'" x-cloak class="mt-6 grid gap-4 md:grid-cols-2">
                         {{-- Destination search --}}
                         <div class="relative md:col-span-2" @click.outside="results = []">
-                            <label class="mb-1 block text-sm font-medium">City / district</label>
-                            <input type="text" name="destination" class="input" autocomplete="off"
+                            <label for="checkout_destination" class="mb-1 block text-sm font-medium">City / district</label>
+                            <input type="text" name="destination" id="checkout_destination" autocomplete="off"
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('destination_id')])
+                                @if ($errors->has('destination_id')) aria-invalid="true" @endif
                                 placeholder="Type at least 3 letters, then pick a place"
                                 x-model="destinationLabel" @input="onDestinationInput()">
                             <input type="hidden" name="destination_id" :value="destinationId">
@@ -267,17 +325,23 @@
                             </ul>
 
                             @error('destination_id')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
 
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Courier</label>
-                            <select name="courier" class="input" x-model="courier">
+                            <label for="checkout_courier" class="mb-1 block text-sm font-medium">Courier</label>
+                            <select name="courier" id="checkout_courier"
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('courier')])
+                                @if ($errors->has('courier')) aria-invalid="true" @endif
+                                x-model="courier">
                                 @foreach (['jne' => 'JNE', 'tiki' => 'TIKI', 'pos' => 'POS Indonesia', 'sicepat' => 'SiCepat', 'jnt' => 'J&T'] as $code => $label)
                                 <option value="{{ $code }}">{{ $label }}</option>
                                 @endforeach
                             </select>
+                            @error('courier')
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="md:col-span-2">
@@ -314,15 +378,17 @@
                             </div>
 
                             @error('service')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
 
                         <div class="md:col-span-2">
-                            <label class="mb-1 block text-sm font-medium">Full address</label>
-                            <textarea name="address" rows="3" class="input">{{ old('address', $user->address) }}</textarea>
+                            <label for="checkout_address" class="mb-1 block text-sm font-medium">Full address</label>
+                            <textarea name="address" id="checkout_address" rows="3"
+                                @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('address')])
+                                @if ($errors->has('address')) aria-invalid="true" @endif>{{ old('address', $user->address) }}</textarea>
                             @error('address')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
                     </div>
@@ -332,7 +398,7 @@
                 <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8"
                     x-data="{ date: @js(old('delivery_date', '')), closed: @js($schedule['closed_weekdays']), count: @js(mb_strlen((string) old('card_message', ''))), get closedDay() { return !!this.date && this.closed.includes(new Date(this.date + 'T00:00:00').getDay()); } }">
                     <div class="mb-5 flex items-center gap-3">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">3</span>
+                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">4</span>
                         <h2 class="font-display text-3xl font-semibold">When do you need it? <span class="text-base font-normal text-ink/50">(optional)</span></h2>
                     </div>
 
@@ -343,7 +409,7 @@
                                 min="{{ $schedule['min'] }}" max="{{ $schedule['max'] }}">
                             <p x-show="closedDay" x-cloak class="mt-1 text-sm text-red-600">We are closed on this day. Please pick another date.</p>
                             @error('delivery_date')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
 
@@ -356,7 +422,7 @@
                                 @endforeach
                             </select>
                             @error('delivery_slot')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
 
@@ -367,7 +433,7 @@
                                 @input="count = $event.target.value.length">{{ old('card_message') }}</textarea>
                             <p class="mt-1 text-right text-xs text-ink/50"><span x-text="count"></span>/{{ $schedule['card_max'] }}</p>
                             @error('card_message')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                             @enderror
                         </div>
                     </div>
@@ -382,15 +448,20 @@
                 </div>
 
                 {{-- Special note --}}
-                <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8">
+                <div class="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-blush/60 md:p-8"
+                    x-data="{ notesCount: @js(mb_strlen((string) old('notes', ''))) }">
                     <div class="mb-5 flex items-center gap-3">
                         <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blush font-display text-lg font-semibold text-moss">4</span>
                         <h2 class="font-display text-3xl font-semibold">Special note <span class="text-base font-normal text-ink/50">(optional)</span></h2>
                     </div>
-                    <textarea name="notes" rows="3" maxlength="500" class="input"
-                        placeholder="Anything else we should know.">{{ old('notes') }}</textarea>
+                    <textarea name="notes" id="checkout_notes" rows="3" maxlength="500"
+                        @class(['input', 'border-red-400 ring-1 ring-red-300' => $errors->has('notes')])
+                        @if ($errors->has('notes')) aria-invalid="true" @endif
+                        placeholder="Anything else we should know."
+                        @input="notesCount = $event.target.value.length">{{ old('notes') }}</textarea>
+                    <p class="mt-1 text-right text-xs text-ink/50"><span x-text="notesCount"></span>/500</p>
                     @error('notes')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    <p data-field-error class="mt-1 scroll-mt-28 text-sm text-red-700">{{ $message }}</p>
                     @enderror
                 </div>
             </div>
