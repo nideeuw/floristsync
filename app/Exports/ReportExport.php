@@ -5,19 +5,30 @@ namespace App\Exports;
 use App\Services\ReportService;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
+class ReportExport extends DefaultValueBinder implements FromArray, ShouldAutoSize, WithCustomValueBinder, WithStyles, WithTitle
 {
     private const MONEY_FORMAT = '"Rp" #,##0';
 
+    /** First characters that make a spreadsheet app read a text cell as a formula. */
+    private const FORMULA_STARTERS = ['=', '+', '-', '@', "\t", "\r"];
+
     private array $rows = [];
+
     private array $titleRows = [];
+
     private int $headingRow = 0;
+
     private int $firstData = 0;
+
     private int $lastData = 0;
 
     public function __construct(
@@ -39,6 +50,22 @@ class ReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTitle
     public function title(): string
     {
         return mb_substr($this->title, 0, 31);
+    }
+
+    /**
+     * Any text that starts with a formula character is written as a plain
+     * string (never a formula). Numbers and the Rp format are not touched.
+     */
+    public function bindValue(Cell $cell, $value): bool
+    {
+        if (is_string($value) && $value !== '' && in_array($value[0], self::FORMULA_STARTERS, true)) {
+            $cell->setValueExplicit($value, DataType::TYPE_STRING);
+            $cell->getStyle()->setQuotePrefix(true);
+
+            return true;
+        }
+
+        return parent::bindValue($cell, $value);
     }
 
     public function styles(Worksheet $sheet): array
