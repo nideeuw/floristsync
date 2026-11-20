@@ -56,7 +56,7 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
 
     Route::middleware('menu.perm:checkout')->group(function () {
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
-        Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+        Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:checkout')->name('checkout.store');
     });
 
     Route::get('/track', [TrackController::class, 'index'])

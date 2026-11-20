@@ -13,8 +13,8 @@ use App\Http\Controllers\Api\ShippingController;
 use Illuminate\Support\Facades\Route;
 
 // ---------- Public ----------
-Route::get('products', [ProductController::class, 'index']);
-Route::get('products/{product}', [ProductController::class, 'show']);
+Route::get('products', [ProductController::class, 'index'])->middleware('throttle:api-products');
+Route::get('products/{product}', [ProductController::class, 'show'])->middleware('throttle:api-products');
 
 // Midtrans webhook (no CSRF, no login)
 Route::post('midtrans/notification', [MidtransController::class, 'notification'])->middleware('throttle:300,1,midtrans');
@@ -48,7 +48,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // POS cashier
-    Route::middleware('role:cashier')->prefix('pos')->group(function () {
+    Route::middleware(['role:cashier', 'throttle:pos-api'])->prefix('pos')->group(function () {
         Route::get('products', [PosController::class, 'products']);
         Route::get('members', [PosController::class, 'members']);
         Route::get('members/search', [PosController::class, 'members']);

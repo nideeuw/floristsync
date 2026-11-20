@@ -15,13 +15,16 @@ use App\Support\PasswordMessages;
 use App\View\Composers\MenuComposer;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\SQLiteConnection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -60,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->make('router')->aliasMiddleware('prevent-back', PreventBackHistory::class);
         $this->app->make('router')->aliasMiddleware('no-cache', PreventBackHistory::class);
+
+        $this->configureRateLimiters();
 
         Password::defaults(function () {
             $isStaff = false;
@@ -134,5 +139,40 @@ class AppServiceProvider extends ServiceProvider
         $translator = $this->app->make('translator');
         $translator->get('validation.password.letters');
         $translator->addLines(PasswordMessages::translatorLines(), $this->app->getLocale());
+    }
+
+    /**
+     * Named limiters used by the throttle:<name> route middleware.
+     * The Midtrans webhook limiter is handled separately (M3).
+     */
+    private function configureRateLimiters(): void
+    {
+        $json = fn (Request $request, array $headers) => response()->json([
+            'message' => 'Too many requests. Please try again later.',
+        ], 429, $headers);
+
+        // Public catalog API: per IP.
+        RateLimiter::for('api-products', fn (Request $request) => Limit::perMinute(60)
+            ->by((string) $request->ip())
+            ->response($json));
+
+        // POS API: per cashier (polling QRIS status and product search need headroom).
+        RateLimiter::for('pos-api', fn (Request $request) => Limit::perMinute(240)
+            ->by((string) ($request->user()?->id ?: $request->ip()))
+            ->response($json));
+
+        RateLimiter::for('register', fn (Request $request) => [
+            Limit::perMinute(5)->by('m:'.$request->ip()),
+            Limit::perHour(20)->by('h:'.$request->ip()),
+        ]);
+
+        // Per IP and per target email, so one inbox cannot be flooded from many IPs.
+        RateLimiter::for('forgot-password', fn (Request $request) => [
+            Limit::perMinute(3)->by('m:'.$request->ip()),
+            Limit::perHour(5)->by('e:'.$request->string('email')->lower()->toString()),
+        ]);
+
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) ($request->user()?->id ?: $request->ip())));
     }
 }

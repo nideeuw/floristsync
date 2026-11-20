@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ThrottleLoginRequests::class,
             EnsureUserIsActive::class,
             \App\Http\Middleware\PreventBackHistory::class,
+            \App\Http\Middleware\SecurityHeaders::class,
         ]);
 
         $middleware->redirectGuestsTo(fn (Request $request) => match (true) {
