@@ -32,6 +32,7 @@ class ProductRequest extends FormRequest
             'product_name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'integer', 'min:0'],
+            'weight_gram' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'stock' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'status' => ['required', Rule::in([Product::STATUS_AVAILABLE, Product::STATUS_UNAVAILABLE])],
             'is_active' => ['nullable', 'boolean'],

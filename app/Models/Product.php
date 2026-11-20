@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
  * @property string $product_name
  * @property string|null $description
  * @property float|int|string $price
+ * @property int|null $weight_gram Shipping weight in grams (null falls back to the config default).
  * @property string|null $image
  * @property string $status
  * @property bool $is_active

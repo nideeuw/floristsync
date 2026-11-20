@@ -4,7 +4,7 @@ return [
     // A product is "low stock" when stock <= this value.
     'low_stock_threshold' => (int) env('LOW_STOCK_THRESHOLD', 5),
 
-    // Used to estimate parcel weight (the ERD has no weight column).
+    // Fallback parcel weight in grams for products without a products.weight_gram value.
     'default_item_weight_gram' => (int) env('DEFAULT_ITEM_WEIGHT_GRAM', 1000),
 
     // Stock is held while an online order waits for payment. A member may have at most this many

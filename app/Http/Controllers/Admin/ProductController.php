@@ -50,6 +50,7 @@ class ProductController extends Controller
             'product_name' => $data['product_name'],
             'description' => $data['description'] ?? null,
             'price' => $data['price'],
+            'weight_gram' => $data['weight_gram'] ?? null,
             'status' => $data['status'],
             'is_active' => $request->boolean('is_active'),
             'image' => $request->file('image')?->store('products', 'public'),
@@ -81,6 +82,7 @@ class ProductController extends Controller
             'product_name' => $data['product_name'],
             'description' => $data['description'] ?? null,
             'price' => $data['price'],
+            'weight_gram' => $data['weight_gram'] ?? null,
             'status' => $data['status'],
             'is_active' => $request->boolean('is_active'),
         ];

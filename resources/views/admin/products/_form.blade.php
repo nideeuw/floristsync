@@ -26,6 +26,12 @@ $active = count(old()) ? (bool) old('is_active') : ($product->is_active ?? true)
         <input type="number" name="price" min="0" required class="input" value="{{ old('price', $product?->price) }}">
     </div>
 
+    <div>
+        <label class="mb-1 block text-sm font-medium">Weight (gram)</label>
+        <input type="number" name="weight_gram" min="1" max="100000" class="input"
+            value="{{ old('weight_gram', $product?->weight_gram ?? config('floristsync.default_item_weight_gram')) }}">
+    </div>
+
     @unless ($product)
     <div>
         <label class="mb-1 block text-sm font-medium">Initial stock</label>

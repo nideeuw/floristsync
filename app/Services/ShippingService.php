@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -332,9 +333,17 @@ class ShippingService
 
     public function calculateWeight(array $items): int
     {
-        $totalQty = (int) collect($items)->sum(fn($i) => (int) $i['qty']);
+        $ids = collect($items)->pluck('product_id')->unique()->values();
+        $weights = Product::whereIn('id', $ids)->pluck('weight_gram', 'id');
+        $default = (int) config('floristsync.default_item_weight_gram');
 
-        return max(1, $totalQty * (int) config('floristsync.default_item_weight_gram'));
+        $total = (int) collect($items)->sum(function ($item) use ($weights, $default) {
+            $weight = (int) ($weights[$item['product_id']] ?? 0);
+
+            return ($weight > 0 ? $weight : $default) * max(0, (int) $item['qty']);
+        });
+
+        return max(1, $total);
     }
 
     private function client(): PendingRequest
