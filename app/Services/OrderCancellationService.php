@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\RefundFailedException;
 use App\Models\Role;
 use App\Models\Transaction;
 use App\Models\User;
@@ -47,7 +48,7 @@ class OrderCancellationService
 
     public function approve(Transaction $transaction, User $admin): Transaction
     {
-        DB::transaction(function () use ($transaction, $admin) {
+        $this->keepingFailedRefund($transaction, function () use ($transaction, $admin) {
             $locked = Transaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
 
             $this->assertReviewable($locked);
@@ -106,7 +107,7 @@ class OrderCancellationService
             throw new DomainException('Cancellation reason is required.');
         }
 
-        DB::transaction(function () use ($transaction, $admin, $reason) {
+        $this->keepingFailedRefund($transaction, function () use ($transaction, $admin, $reason) {
             $locked = Transaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->transaction_type !== Transaction::TYPE_ONLINE) {
@@ -144,6 +145,49 @@ class OrderCancellationService
         );
 
         return $transaction->refresh();
+    }
+
+    /** Cancelled orders that were paid late and whose refund Midtrans rejected. */
+    public function failedRefunds(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Transaction::where('transaction_type', Transaction::TYPE_ONLINE)
+            ->where('status', Transaction::CANCELLED)
+            ->whereHas('payments', fn ($q) => $q->where('refund_status', 'failed'))
+            ->with('payment', 'user:id,name')
+            ->latest('id')
+            ->get();
+    }
+
+    public function retryRefund(Transaction $transaction, User $admin): Transaction
+    {
+        $transaction->loadMissing('payment');
+
+        if ($transaction->status !== Transaction::CANCELLED || $transaction->payment?->refund_status !== 'failed') {
+            throw new DomainException('Only a failed refund of a cancelled order can be retried here.');
+        }
+
+        $this->reversal->refund($transaction);
+
+        $transaction->refresh()->load('payment');
+
+        app(AuditService::class)->log('refund.retried', 'transaction', $transaction->id, ['refund_status' => 'failed'], ['refund_status' => $transaction->payment?->refund_status], userId: $admin->id);
+
+        return $transaction;
+    }
+
+    /**
+     * Runs the cancellation in a database transaction. When Midtrans rejects the refund everything rolls back
+     * (order, stock), so the failure is written again outside of the transaction.
+     */
+    private function keepingFailedRefund(Transaction $transaction, \Closure $work): void
+    {
+        try {
+            DB::transaction($work);
+        } catch (RefundFailedException $e) {
+            $this->reversal->markRefundFailed($transaction);
+
+            throw $e;
+        }
     }
 
     private function cancelUnpaid(Transaction $transaction, User $member, string $reason): void

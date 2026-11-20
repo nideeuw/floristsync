@@ -38,6 +38,18 @@
 
     @if ($selected->status === 'cancelled')
     <div class="mt-6 rounded-2xl bg-red-100 px-4 py-3 text-sm text-red-800">This order was cancelled.</div>
+
+    @php($refundPayment = $selected->payment)
+    @if ($refundPayment?->refund_status === 'success')
+    <div class="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm">
+        Refunded <span class="font-semibold">{{ rupiah($refundPayment->refund_amount ?? $refundPayment->amount) }}</span>
+        on {{ $refundPayment->refunded_at?->format('d M Y, H:i') }}
+    </div>
+    @elseif (in_array($refundPayment?->refund_status, ['pending', 'failed'], true))
+    <div class="mt-3 rounded-2xl bg-cream px-4 py-3 text-sm">
+        Your refund is being processed. If it takes longer than expected, please contact us via WhatsApp.
+    </div>
+    @endif
     @else
     <ol class="mt-8">
         @foreach ($steps as $index => $label)

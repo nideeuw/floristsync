@@ -13,7 +13,7 @@ class Payment extends Model
     use HasAuditColumns, HasFactory;
 
     protected $guarded = ['id'];
-    protected $casts = ['is_active' => 'boolean', 'payment_date' => 'datetime'];
+    protected $casts = ['is_active' => 'boolean', 'payment_date' => 'datetime', 'refunded_at' => 'datetime'];
 
     public function transaction(): BelongsTo
     {

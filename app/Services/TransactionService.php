@@ -267,6 +267,10 @@ class TransactionService
                 'payment_method' => $notification['payment_type'] ?? $payment->payment_method,
             ]);
 
+            if (in_array($status, ['refund', 'partial_refund'], true)) {
+                app(PaymentReversalService::class)->recordRefund($payment, $notification);
+            }
+
             if ($this->isPaid($notification)) {
                 $this->markPaid($payment, $transaction);
             } elseif ($status === 'expire' || (! $transaction->canResumePayment() && in_array($status, self::FAILED_STATUSES, true))) {
