@@ -154,6 +154,19 @@
                 :destination-zip="$savedZip" />
         </div>
 
+        {{-- Email --}}
+        <div class="space-y-3 border-t border-blush/80 pt-6">
+            <input type="hidden" name="email_invoice" value="0">
+            <label class="flex items-start gap-3 text-sm">
+                <input type="checkbox" name="email_invoice" value="1" class="mt-0.5 rounded border-gray-300 text-moss"
+                    @checked(old('email_invoice', $user->email_invoice ?? true))>
+                <span>
+                    <span class="font-medium">Email me my invoice</span>
+                    <span class="block text-xs text-gray-500">We send one email with your invoice when an online order is paid.</span>
+                </span>
+            </label>
+        </div>
+
         <div class="flex items-center gap-4">
             <button class="btn-primary px-7 py-3">Save changes</button>
 

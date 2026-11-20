@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Events\OrderPaid;
 use App\Http\Middleware\PreventBackHistory;
+use App\Jobs\SendInvoiceMail;
 use App\Mail\Transport\GmailScriptTransport;
 use App\Models\Role;
 use App\Models\Transaction;
@@ -110,6 +112,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Audit trail: order status changes and staff logins (see AuditService).
         Transaction::observe(TransactionObserver::class);
+
+        // One invoice email per paid online order, sent after the response so the webhook is answered first.
+        Event::listen(OrderPaid::class, function (OrderPaid $event) {
+            SendInvoiceMail::dispatch($event->transactionId)->afterResponse();
+        });
 
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User && ! $event->user->hasRole(Role::MEMBER)) {

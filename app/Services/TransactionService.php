@@ -395,6 +395,8 @@ class TransactionService
 
         $transaction->update(['status' => Transaction::PROCESSING]);
 
+        \App\Events\OrderPaid::dispatch($transaction->id);
+
         $this->notifications->notifyRoles(
             [Role::ADMIN_ORDER],
             'New paid order',
