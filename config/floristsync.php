@@ -18,6 +18,8 @@ return [
 
     'pos_cancel_window_minutes' => (int) env('POS_CANCEL_WINDOW_MINUTES', 30),
 
+    'auto_complete_shipped_days' => (int) env('AUTO_COMPLETE_SHIPPED_DAYS', 3),
+
     // Fallback opening hours, used until the owner saves store settings.
     'opening_hours' => array_fill_keys(
         ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],

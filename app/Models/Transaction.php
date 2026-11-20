@@ -46,6 +46,7 @@ class Transaction extends Model
         'is_active' => 'boolean',
         'cancelled_at' => 'datetime',
         'cancel_requested_at' => 'datetime',
+        'shipped_at' => 'datetime',
     ];
 
     protected static function booted(): void

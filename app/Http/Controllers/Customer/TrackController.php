@@ -87,6 +87,22 @@ class TrackController extends Controller
         ]);
     }
 
+    public function received(Request $request, Transaction $transaction, TransactionService $transactions): RedirectResponse
+    {
+        abort_unless($transaction->user_id === $request->user()?->id, 404);
+        abort_unless($transaction->transaction_type === Transaction::TYPE_ONLINE, 404);
+
+        try {
+            $transactions->confirmReceived($transaction, $request->user());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('track', ['order' => $transaction->order_number])
+            ->with('success', 'Thank you! Your order is now completed.');
+    }
+
     /** Sends the invoice email again. At most 3 times a day for each order. */
     public function resendInvoice(Request $request, Transaction $transaction): RedirectResponse
     {

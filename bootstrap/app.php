@@ -42,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('orders:expire-pending')->everyFiveMinutes();
+        $schedule->command('orders:auto-complete-shipped')->hourly()->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

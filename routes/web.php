@@ -68,6 +68,9 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
     Route::post('/track/{transaction}/invoice/resend', [TrackController::class, 'resendInvoice'])
         ->middleware('menu.perm:track,edit')->name('track.invoice.resend');
 
+    Route::post('/track/{transaction}/received', [TrackController::class, 'received'])
+        ->middleware('menu.perm:track,edit')->name('track.received');
+
     Route::get('/track/{transaction}/pay', [TrackController::class, 'pay'])
         ->middleware('menu.perm:track')->name('track.pay');
 

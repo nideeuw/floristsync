@@ -321,7 +321,7 @@ class TransactionService
             throw new DomainException('Tracking number can only be set for delivery orders that are being processed.');
         }
 
-        $transaction->update(['tracking_number' => $trackingNumber, 'status' => Transaction::SHIPPED]);
+        $transaction->update(['tracking_number' => $trackingNumber, 'status' => Transaction::SHIPPED, 'shipped_at' => now()]);
 
         $this->notifyStatus($transaction, "Your order #{$transaction->id} has been shipped. Tracking number: {$trackingNumber}.");
 
@@ -347,6 +347,25 @@ class TransactionService
             in_array($transaction->status, [Transaction::READY_FOR_PICKUP, Transaction::SHIPPED], true) => [Transaction::COMPLETED],
             default => [],
         };
+    }
+
+    public function confirmReceived(Transaction $transaction, User $user): Transaction
+    {
+        return DB::transaction(function () use ($transaction, $user) {
+            $locked = Transaction::whereKey($transaction->id)->lockForUpdate()->first();
+
+            if (! $locked || $locked->user_id !== $user->id) {
+                throw new DomainException('This order does not belong to you.');
+            }
+
+            if ($locked->transaction_type !== Transaction::TYPE_ONLINE
+                || ! $locked->isDelivery()
+                || $locked->status !== Transaction::SHIPPED) {
+                throw new DomainException('Only a shipped delivery order can be confirmed as received.');
+            }
+
+            return $this->changeStatus($locked, Transaction::COMPLETED);
+        });
     }
 
     public function changeStatus(Transaction $transaction, string $newStatus): Transaction
