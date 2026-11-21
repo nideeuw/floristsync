@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\RegistrationCodeMail;
 use App\Models\CartItem;
 use App\Models\Category;
 use App\Models\Product;
@@ -12,6 +13,7 @@ use App\Services\MidtransService;
 use Database\Seeders\RolesMenusSeeder;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -182,20 +184,29 @@ class CartPersistenceTest extends TestCase
 
     public function test_registration_merges_guest_session_cart_into_new_member_cart(): void
     {
+        Mail::fake();
+
         $this->withSession([
             'cart' => [
                 $this->rose->id => 3,
             ],
         ]);
 
-        $response = $this->post(route('register'), [
+        $this->post(route('register'), [
             'name' => 'New Customer',
             'email' => 'newcustomer@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ]);
+        ])->assertRedirect(route('register.verify'));
 
-        $response->assertRedirect();
+        $code = null;
+        Mail::assertSent(RegistrationCodeMail::class, function ($mail) use (&$code) {
+            $code = $mail->code;
+
+            return true;
+        });
+
+        $this->post(route('register.verify.store'), ['code' => $code])->assertRedirect();
         $this->assertAuthenticated();
 
         $newUser = User::where('email', 'newcustomer@example.com')->firstOrFail();

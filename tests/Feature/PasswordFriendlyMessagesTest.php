@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Mail\RegistrationCodeMail;
 use App\Models\User;
 use Database\Seeders\RolesMenusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PasswordFriendlyMessagesTest extends TestCase
@@ -50,11 +52,14 @@ class PasswordFriendlyMessagesTest extends TestCase
         $this->assertStringContainsString('at least one letter', session('errors')->first('password'));
     }
 
-    public function test_a_valid_password_still_registers(): void
+    public function test_a_valid_password_is_accepted_and_a_code_is_mailed(): void
     {
-        $this->register('Flower2026')->assertSessionHasNoErrors();
+        Mail::fake();
 
-        $this->assertInstanceOf(User::class, User::where('email', 'new.member@example.test')->first());
+        $this->register('Flower2026')->assertSessionHasNoErrors()->assertRedirect(route('register.verify'));
+
+        Mail::assertSent(RegistrationCodeMail::class);
+        $this->assertNull(User::where('email', 'new.member@example.test')->first()); // created after the code is entered
     }
 
     public function test_the_register_and_reset_pages_show_the_strength_hint(): void

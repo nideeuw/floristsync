@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\ReactivationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\RegistrationVerificationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,20 @@ Route::middleware('guest')->group(function () {
 
     Route::post('register', [RegisteredUserController::class, 'store'])
         ->middleware('throttle:register');
+
+    Route::get('register/verify', [RegistrationVerificationController::class, 'show'])
+        ->name('register.verify');
+
+    Route::post('register/verify', [RegistrationVerificationController::class, 'store'])
+        ->middleware('throttle:register-verify')
+        ->name('register.verify.store');
+
+    Route::post('register/verify/resend', [RegistrationVerificationController::class, 'resend'])
+        ->middleware('throttle:register-code')
+        ->name('register.verify.resend');
+
+    Route::post('register/verify/cancel', [RegistrationVerificationController::class, 'cancel'])
+        ->name('register.verify.cancel');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

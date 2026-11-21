@@ -164,7 +164,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('register', fn (Request $request) => [
             Limit::perMinute(5)->by('m:'.$request->ip()),
             Limit::perHour(20)->by('h:'.$request->ip()),
+            Limit::perHour(5)->by('e:'.$request->string('email')->lower()->toString()),
         ]);
+
+        RateLimiter::for('register-code', fn (Request $request) => [
+            Limit::perMinute(3)->by('m:'.$request->ip()),
+            Limit::perHour(10)->by('h:'.$request->ip()),
+        ]);
+
+        RateLimiter::for('register-verify', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) $request->ip()));
 
         // Per IP and per target email, so one inbox cannot be flooded from many IPs.
         RateLimiter::for('forgot-password', fn (Request $request) => [

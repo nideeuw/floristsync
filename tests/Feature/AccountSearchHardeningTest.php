@@ -252,9 +252,8 @@ class AccountSearchHardeningTest extends TestCase
             'password_confirmation' => 'pass1234',
         ]);
         $r4->assertSessionHasNoErrors();
-        $this->assertAuthenticated();
-
-        $this->post('/logout');
+        $r4->assertRedirect(route('register.verify'));
+        $this->assertGuest();
 
         // 2. Staff password rules (at least 10 characters):
         $ownerRole = Role::where('role_name', Role::OWNER)->firstOrFail();

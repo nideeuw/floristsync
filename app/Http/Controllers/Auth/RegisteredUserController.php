@@ -3,18 +3,14 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use App\Models\User;
-use App\Services\CartService;
+use App\Services\RegistrationVerificationService;
 use App\Support\PasswordMessages;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class RegisteredUserController extends Controller
 {
@@ -26,7 +22,7 @@ class RegisteredUserController extends Controller
         return view('auth.register');
     }
 
-    public function store(Request $request, CartService $cart): RedirectResponse
+    public function store(Request $request, RegistrationVerificationService $verification): RedirectResponse
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -37,26 +33,16 @@ class RegisteredUserController extends Controller
             ...PasswordMessages::forMember(),
         ]);
 
-        $guestCart = session('cart', []);
+        try {
+            $verification->start($request, $request->name, $request->email, $request->password);
+        } catch (Throwable $e) {
+            report($e);
 
-        $memberRoleId = Role::where('role_name', Role::MEMBER)->firstOrFail()->id;
+            return back()
+                ->withInput($request->only('name', 'email'))
+                ->withErrors(['email' => 'We could not send the verification code right now. Please try again in a moment.']);
+        }
 
-        $user = new User();
-        $user->forceFill([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role_id' => $memberRoleId,
-            'is_active' => true,
-        ])->save();
-
-        event(new Registered($user));
-
-        Auth::login($user);
-
-        $cart->mergeGuestCart($guestCart, $user);
-        $request->session()->forget('cart');
-
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->route('register.verify');
     }
 }
