@@ -52,6 +52,11 @@ class PasswordResetLinkController extends Controller
                 ->withErrors(['email' => "Please wait {$remaining} seconds before retrying."]);
         }
 
-        return back()->with('status', 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.');
+        if ($status === Password::INVALID_USER) {
+            return back()->withInput($request->only('email'))
+                ->withErrors(['email' => 'We could not find an account with this email address. Please check the spelling or register a new account.']);
+        }
+
+        return back()->with('status', 'We have emailed you a password reset link. Please check your inbox and your spam folder.');
     }
 }

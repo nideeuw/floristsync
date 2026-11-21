@@ -84,7 +84,7 @@ class PasswordResetTest extends TestCase
         });
     }
 
-    public function test_forgot_password_does_not_leak_whether_email_exists(): void
+    public function test_forgot_password_tells_the_visitor_when_the_email_is_not_registered(): void
     {
         Notification::fake();
 
@@ -92,8 +92,10 @@ class PasswordResetTest extends TestCase
             'email' => 'doesnotexist@example.com',
         ]);
 
-        $response->assertSessionHasNoErrors();
-        $response->assertSessionHas('status', 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.');
+        $response->assertSessionHasErrors([
+            'email' => 'We could not find an account with this email address. Please check the spelling or register a new account.',
+        ]);
+        $response->assertSessionMissing('status');
         Notification::assertNothingSent();
     }
 
@@ -189,25 +191,24 @@ class PasswordResetTest extends TestCase
         });
     }
 
-    public function test_tc020_registered_email_sends_link_and_unknown_email_shows_same_message_without_sending(): void
+    public function test_tc020_registered_email_sends_link_and_unknown_email_shows_a_clear_error_without_sending(): void
     {
         Notification::fake();
 
         $user = User::factory()->create(['email' => 'registered.user@example.com']);
-        $expectedMessage = 'If that email is registered, we have sent a password reset link. Please check your inbox and your spam folder.';
 
         // Known registered user
         $knownResponse = $this->post('/forgot-password', ['email' => $user->email]);
         $knownResponse->assertSessionHasNoErrors();
-        $knownResponse->assertSessionHas('status', $expectedMessage);
+        $knownResponse->assertSessionHas('status', 'We have emailed you a password reset link. Please check your inbox and your spam folder.');
         Notification::assertSentTo($user, ResetPassword::class);
 
-        // Unknown unregistered email
         $unknownResponse = $this->post('/forgot-password', ['email' => 'unregistered.ghost@example.com']);
-        $unknownResponse->assertSessionHasNoErrors();
-        $unknownResponse->assertSessionHas('status', $expectedMessage);
+        $unknownResponse->assertSessionHasErrors([
+            'email' => 'We could not find an account with this email address. Please check the spelling or register a new account.',
+        ]);
+        $unknownResponse->assertSessionMissing('status');
 
-        // Anti account-enumeration: exactly 1 notification sent across both requests (to known user only)
         Notification::assertCount(1);
     }
 
@@ -218,7 +219,7 @@ class PasswordResetTest extends TestCase
             'password' => Hash::make('OldPassword123!'),
         ]);
 
-        $token = Password::broker()->createToken($user);
+        $token = Password::createToken($user);
 
         // Fast forward beyond token expiry (default 60 mins)
         Carbon::setTestNow(now()->addMinutes(config('auth.passwords.users.expire', 60) + 5));
@@ -247,7 +248,7 @@ class PasswordResetTest extends TestCase
             'password' => Hash::make('InitialPassword123!'),
         ]);
 
-        $token = Password::broker()->createToken($user);
+        $token = Password::createToken($user);
 
         // First use: success
         $firstResponse = $this->post('/reset-password', [
@@ -283,7 +284,7 @@ class PasswordResetTest extends TestCase
             'password' => Hash::make('OldPassword123!'),
         ]);
 
-        $token = Password::broker()->createToken($user);
+        $token = Password::createToken($user);
 
         $response = $this->post('/reset-password', [
             'token' => $token,
