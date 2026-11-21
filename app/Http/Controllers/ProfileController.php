@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\EmailChangeVerificationService;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
+use Throwable;
 
 class ProfileController extends Controller
 {
@@ -24,19 +27,36 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, EmailChangeVerificationService $emailChange): RedirectResponse
     {
-        $request->user()->fill($request->safe()->except('current_password'));
+        $user = $request->user();
+        $newEmail = mb_strtolower(trim((string) $request->validated('email')));
+        $emailChanging = $newEmail !== mb_strtolower((string) $user->email);
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        if ($emailChanging) {
+            try {
+                $emailChange->start($request, $user, $newEmail);
+            } catch (DomainException $e) {
+                return back()->withInput()->withErrors(['email' => $e->getMessage()]);
+            } catch (Throwable $e) {
+                report($e);
+
+                return back()->withInput()
+                    ->withErrors(['email' => 'We could not send the confirmation code right now. Please try again in a moment.']);
+            }
         }
+
+        $user->fill($request->safe()->except('current_password', 'email'));
 
         if ($request->has('email_invoice')) {
-            $request->user()->email_invoice = $request->boolean('email_invoice');
+            $user->email_invoice = $request->boolean('email_invoice');
         }
 
-        $request->user()->save();
+        $user->save();
+
+        if ($emailChanging) {
+            return Redirect::route('profile.email.verify');
+        }
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

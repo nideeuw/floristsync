@@ -29,6 +29,7 @@ use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\HomeController;
 use App\Http\Controllers\Customer\TrackController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\EmailChangeController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Role;
 use App\Services\AreaHomeService;
@@ -89,6 +90,13 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        Route::get('/profile/email', [EmailChangeController::class, 'show'])->name('profile.email.verify');
+        Route::post('/profile/email', [EmailChangeController::class, 'store'])
+            ->middleware('throttle:10,1')->name('profile.email.verify.store');
+        Route::post('/profile/email/resend', [EmailChangeController::class, 'resend'])
+            ->middleware('throttle:6,1')->name('profile.email.resend');
+        Route::post('/profile/email/cancel', [EmailChangeController::class, 'cancel'])->name('profile.email.cancel');
     });
 });
 

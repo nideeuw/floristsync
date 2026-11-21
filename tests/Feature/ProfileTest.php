@@ -43,13 +43,12 @@ class ProfileTest extends TestCase
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
+            ->assertRedirect(route('profile.email.verify'));
 
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $this->assertNotSame('test@example.com', $user->email);
     }
 
     public function test_name_can_be_updated_without_password_when_email_is_unchanged(): void

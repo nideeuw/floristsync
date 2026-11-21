@@ -103,7 +103,7 @@
             {{-- Asked only when the email address is edited --}}
             <div x-show="email.trim().toLowerCase() !== original.toLowerCase()" x-cloak>
                 <x-ui.field name="current_password" id="email_current_password" label="Current password" type="password"
-                    autocomplete="current-password" hint="Required to change your email address." />
+                    autocomplete="current-password" hint="Required to change your email address. We email a code to the new address to confirm it." />
             </div>
         </div>
 
@@ -182,6 +182,12 @@
                 <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2500)"
                     class="inline-flex items-center gap-1 text-sm font-medium text-moss">
                     <x-ui.icon name="check" class="h-4 w-4" /> Saved.
+                </p>
+            @endif
+
+            @if (session('status') === 'email-updated')
+                <p class="inline-flex items-center gap-1 text-sm font-medium text-moss">
+                    <x-ui.icon name="check" class="h-4 w-4" /> Your new email is confirmed and saved.
                 </p>
             @endif
         </div>
