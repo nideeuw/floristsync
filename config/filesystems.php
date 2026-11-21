@@ -14,6 +14,10 @@ return [
     */
 
     'default' => env('FILESYSTEM_DISK', 'local'),
+    /*
+    | Disk untuk foto produk (Supabase Storage lewat S3 protocol).
+    */
+    'product_image_disk' => env('PRODUCT_IMAGE_DISK', 'product_images'),
 
     /*
     |--------------------------------------------------------------------------
@@ -29,6 +33,18 @@ return [
     */
 
     'disks' => [
+        'product_images' => [
+            'driver' => 's3',
+            'key' => env('PRODUCT_IMAGES_KEY'),
+            'secret' => env('PRODUCT_IMAGES_SECRET'),
+            'region' => env('PRODUCT_IMAGES_REGION', 'ap-southeast-1'),
+            'bucket' => env('PRODUCT_IMAGES_BUCKET'),
+            'url' => env('PRODUCT_IMAGES_URL'),
+            'endpoint' => env('PRODUCT_IMAGES_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
 
         'local' => [
             'driver' => 'local',
