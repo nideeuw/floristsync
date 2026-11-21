@@ -55,8 +55,8 @@ $active = count(old()) ? (bool) old('is_active') : ($product->is_active ?? true)
     <div class="md:col-span-2">
         <label class="mb-1 block text-sm font-medium">Image (max 2 MB)</label>
 
-        @if ($product?->image)
-        <img src="{{ asset('storage/' . $product->image) }}" alt="" class="mb-2 h-24 w-24 rounded-xl object-cover">
+        @if ($product?->image && app(\App\Services\ProductImageService::class)->url($product->image))
+        <img src="{{ app(\App\Services\ProductImageService::class)->url($product->image) }}" alt="" class="mb-2 h-24 w-24 rounded-xl object-cover">
         @endif
 
         <input type="file" name="image" accept="image/*" class="block text-sm">

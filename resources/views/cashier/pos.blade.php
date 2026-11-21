@@ -1,6 +1,6 @@
 <x-pos-layout>
     <div x-data="pos"
-        data-storage-url="{{ asset('storage') }}"
+        data-storage-url="{{ rtrim((string) config('filesystems.disks.product_images.url'), '/') }}"
         data-low-stock="{{ (int) config('floristsync.low_stock_threshold') }}"
         data-login-url="{{ route('cashier.login') }}"
         data-opening-cash="{{ (int) ($shift?->opening_cash ?? 0) }}"
@@ -48,10 +48,10 @@
                             class="card flex flex-col overflow-hidden text-left transition hover:border-petal hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-40">
                             <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden"
                                 :class="['bg-blush', 'bg-petal/50', 'bg-sage/40', 'bg-cream'][p.id % 4]">
-                                <template x-if="p.image">
+                                <template x-if="p.image && p.image.startsWith('product-images/')">
                                     <img :src="storageUrl + '/' + p.image" alt="" class="h-full w-full object-cover">
                                 </template>
-                                <template x-if="!p.image">
+                                <template x-if="!(p.image && p.image.startsWith('product-images/'))">
                                     <span class="text-5xl" x-text="emojis[p.id % 6]"></span>
                                 </template>
 
