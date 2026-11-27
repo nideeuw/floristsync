@@ -90,7 +90,9 @@ Route::middleware(['auth', 'role:'.Role::MEMBER])->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    });
 
+    Route::middleware('menu.perm:profile.edit,edit')->group(function () {
         Route::get('/profile/email', [EmailChangeController::class, 'show'])->name('profile.email.verify');
         Route::post('/profile/email', [EmailChangeController::class, 'store'])
             ->middleware('throttle:10,1')->name('profile.email.verify.store');

@@ -54,7 +54,7 @@ class PublicFooterTest extends TestCase
             ->assertOk()
             ->assertDontSee('Store location map')
             ->assertDontSee('maps.google.com', false)
-            ->assertDontSee('Buka di Google Maps');
+            ->assertDontSee('View on Google Maps');
     }
 
     public function test_the_map_uses_the_address_when_there_are_no_coordinates(): void
@@ -91,7 +91,7 @@ class PublicFooterTest extends TestCase
 
         $this->get(route('home'))
             ->assertOk()
-            ->assertSee('Buka di Google Maps')
+            ->assertSee('View on Google Maps')
             ->assertSee('href="'.e($expected).'"', false);
     }
 }
