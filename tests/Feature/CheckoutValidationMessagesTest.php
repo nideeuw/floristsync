@@ -76,6 +76,23 @@ class CheckoutValidationMessagesTest extends TestCase
             ->post(route('checkout.store'), $this->payload($override));
     }
 
+    protected function followRedirects($response)
+    {
+        $cookies = [];
+        foreach ($response->headers->getCookies() as $cookie) {
+            $cookies[$cookie->getName()] = $cookie->getValue();
+        }
+
+        while ($response->isRedirect()) {
+            $response = $this->withUnencryptedCookies($cookies)->get($response->headers->get('Location'));
+            foreach ($response->headers->getCookies() as $cookie) {
+                $cookies[$cookie->getName()] = $cookie->getValue();
+            }
+        }
+
+        return $response;
+    }
+
     public function test_delivery_without_courier_and_service_shows_the_message(): void
     {
         $response = $this->submit([

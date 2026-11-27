@@ -15,12 +15,15 @@ class ProductImageUploadTest extends TestCase
 {
     use InteractsWithSeededRoles, RefreshDatabase;
 
+    private string $diskName;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->seedRolesAndMenus();
-        Storage::fake('public');
+        $this->diskName = config('filesystems.product_image_disk');
+        Storage::fake($this->diskName);
     }
 
     public function test_php_file_renamed_to_jpg_is_rejected(): void
@@ -38,7 +41,7 @@ class ProductImageUploadTest extends TestCase
 
         $response->assertSessionHasErrors('image');
         $this->assertSame(0, Product::count());
-        $this->assertSame([], Storage::disk('public')->allFiles());
+        $this->assertSame([], Storage::disk($this->diskName)->allFiles());
     }
 
     public function test_gif_is_rejected(): void
@@ -74,7 +77,7 @@ class ProductImageUploadTest extends TestCase
         $response->assertRedirect(route('admin.products.index'));
 
         $product = Product::firstOrFail();
-        Storage::disk('public')->assertExists($product->image);
+        Storage::disk($this->diskName)->assertExists($product->image);
     }
 
     /**
